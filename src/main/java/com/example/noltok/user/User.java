@@ -1,6 +1,6 @@
 package com.example.noltok.user;
 
-import com.noltalk.global.entity.BaseEntity;
+import com.example.noltok.global.entity.BaseEntity;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;

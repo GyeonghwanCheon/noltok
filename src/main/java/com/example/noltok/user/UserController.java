@@ -20,18 +20,6 @@ public class UserController {
 
     private final UserService userService;
 
-//    @PostMapping("/signup")
-//    public ResponseEntity<ApiResponse<SignUpResponse>> signUp(
-//            @Valid @RequestBody SignUpRequest request) {
-//
-//        SignUpResponse response = userService.signUp(request);
-//
-//        return ResponseEntity
-//                .status(HttpStatus.CREATED)
-//                .body(ApiResponse.ok("회원가입이 완료되었습니다.", response));
-//    }
-
-
     @GetMapping("/me")
     public ResponseEntity<ApiResponse<UserResponse>> getMyInfo(
             @AuthenticationPrincipal UserDetails userDetails) {

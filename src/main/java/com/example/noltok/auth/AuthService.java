@@ -45,12 +45,6 @@ public class AuthService {
         return SignUpResponse.from(savedUser);
     }
 
-    private void validateDuplicateEmail(String email) {
-        if (userRepository.existsByEmail(email)) {
-            throw new BusinessException(ErrorCode.DUPLICATE_EMAIL);
-        }
-    }
-
     // 로그인
     @Transactional
     public LoginResponse login(LoginRequest request) {
@@ -112,5 +106,12 @@ public class AuthService {
     @Transactional
     public void logout(Long userId) {
         refreshTokenRepository.deleteByUserId(userId);
+    }
+
+
+    private void validateDuplicateEmail(String email) {
+        if (userRepository.existsByEmail(email)) {
+            throw new BusinessException(ErrorCode.DUPLICATE_EMAIL);
+        }
     }
 }

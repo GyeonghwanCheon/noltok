@@ -8,6 +8,8 @@ import com.example.noltok.global.exception.ErrorCode;
 import com.example.noltok.global.jwt.JwtProvider;
 import com.example.noltok.user.User;
 import com.example.noltok.user.UserRepository;
+import com.example.noltok.user.dto.SignUpRequest;
+import com.example.noltok.user.dto.SignUpResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -27,6 +29,27 @@ public class AuthService {
 
     @Value("${jwt.refresh-expiration}")
     private long refreshExpiration;
+
+
+    // 회원가입
+    @Transactional
+    public SignUpResponse signUp(SignUpRequest request) {
+
+        validateDuplicateEmail(request.email());
+
+        String encodedPassword = passwordEncoder.encode(request.password());
+
+        User user = User.create(request.email(), encodedPassword, request.nickname());
+        User savedUser = userRepository.save(user);
+
+        return SignUpResponse.from(savedUser);
+    }
+
+    private void validateDuplicateEmail(String email) {
+        if (userRepository.existsByEmail(email)) {
+            throw new BusinessException(ErrorCode.DUPLICATE_EMAIL);
+        }
+    }
 
     // 로그인
     @Transactional

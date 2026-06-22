@@ -1,6 +1,10 @@
 package com.example.noltok.user;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+
+import java.util.List;
 import java.util.Optional;
 
 public interface UserRepository extends JpaRepository<User, Long> {
@@ -16,4 +20,16 @@ public interface UserRepository extends JpaRepository<User, Long> {
     // → existsByNicknameAndIdNot(nickname, userId) 사용
     //   "해당 nickname을 가진 유저 중 내(userId)가 아닌 사람이 있는가"
     boolean existsByNicknameAndIdNot(String nickname, Long id);
+
+    // @Query 사용 이유:
+    // → Query Method로 표현하면
+    //   findByNicknameContainingAndIdNot() 처럼 메서드명이 너무 길어짐
+    // → @Query로 의도를 명확하게 표현
+    // → LIKE %:nickname% = 닉네임 부분일치 검색
+    // → u.id != :userId = 본인 제외
+    @Query("SELECT u FROM User u WHERE u.nickname LIKE %:nickname% AND u.id != :userId")
+    List<User> searchByNicknameExcludingMe(
+            @Param("nickname") String nickname,
+            @Param("userId") Long userId
+    );
 }

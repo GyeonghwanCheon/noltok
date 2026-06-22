@@ -10,6 +10,8 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 
 @RestController
 @RequestMapping("/api/v1/users")
@@ -49,5 +51,19 @@ public class UserController {
         userService.changePassword(userId, request);
         return ResponseEntity.ok(ApiResponse.ok("비밀번호를 변경하였습니다.", null));
     }
+
+    // 유저 검색
+    // @RequestParam 이유:
+    // → GET /api/v1/users?nickname=홍 형태로 쿼리 파라미터로 받음
+    // → @PathVariable은 /users/{nickname} 형태 → 검색어가 경로에 노출되어 부적절
+    @GetMapping
+    public ResponseEntity<ApiResponse<List<UserSummaryResponse>>> searchUsers(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @RequestParam String nickname) {
+        Long userId = Long.parseLong(userDetails.getUsername());
+        List<UserSummaryResponse> response = userService.searchUsers(nickname, userId);
+        return ResponseEntity.ok(ApiResponse.ok(response));
+    }
+
 
 }

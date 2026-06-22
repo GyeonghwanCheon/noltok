@@ -5,10 +5,13 @@ import com.example.noltok.global.exception.ErrorCode;
 import com.example.noltok.user.dto.ChangePasswordRequest;
 import com.example.noltok.user.dto.UpdateProfileRequest;
 import com.example.noltok.user.dto.UserResponse;
+import com.example.noltok.user.dto.UserSummaryResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -84,8 +87,19 @@ public class UserService {
         user.changePassword(encodedPassword);
     }
 
-
-
+    // 유저 검색
+    // readOnly = true 이유: 조회만 하는 메서드, 불필요한 변경감지 생략
+    @Transactional(readOnly = true)
+    public List<UserSummaryResponse> searchUsers(String nickname, Long userId) {
+        return userRepository.searchByNicknameExcludingMe(nickname, userId)
+                .stream()
+                .map(UserSummaryResponse::from)
+                .toList();
+        // 검색 결과가 없으면 빈 리스트 반환
+        // → 404로 처리하지 않는 이유:
+        //   "해당 닉네임의 유저가 없음"은 정상적인 결과
+        //   에러가 아니라 빈 배열로 응답하는 게 RESTful 관례
+    }
 
 
     // 본인 제외 닉네임 중복 체크

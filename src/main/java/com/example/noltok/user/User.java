@@ -51,4 +51,12 @@ public class User extends BaseEntity {
             this.profileImageUrl = profileImageUrl;
         }
     }
+
+    // changePassword 설계 의도:
+    // → 암호화는 Service에서 처리 후 encodedPassword를 받음
+    // → Entity는 "저장"만 담당, 암호화 책임은 Service에
+    // → 평문 비밀번호가 Entity 안으로 들어오지 않도록 설계
+    public void changePassword(String encodedPassword) {
+        this.password = encodedPassword;
+    }
 }

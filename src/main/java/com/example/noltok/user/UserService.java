@@ -2,6 +2,7 @@ package com.example.noltok.user;
 
 import com.example.noltok.global.exception.BusinessException;
 import com.example.noltok.global.exception.ErrorCode;
+import com.example.noltok.user.dto.ChangePasswordRequest;
 import com.example.noltok.user.dto.UpdateProfileRequest;
 import com.example.noltok.user.dto.UserResponse;
 import lombok.RequiredArgsConstructor;
@@ -48,6 +49,44 @@ public class UserService {
 
         return UserResponse.from(user);
     }
+
+
+    @Transactional
+    public void changePassword(Long userId, ChangePasswordRequest request) {
+
+        // 1. userId로 User 조회
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+
+        // 2. 현재 비밀번호 검증
+        // → 틀리면 INVALID_CREDENTIALS (401)
+        // → 로그인과 동일한 에러코드 사용 이유:
+        //   "현재 비밀번호가 틀렸습니다"를 구체적으로 알려주면
+        //   공격자가 비밀번호 브루트포싱에 활용 가능
+        if (!passwordEncoder.matches(request.currentPassword(), user.getPassword())) {
+            throw new BusinessException(ErrorCode.INVALID_CREDENTIALS);
+        }
+
+        // 3. 현재 비밀번호와 새 비밀번호 동일 여부 확인
+        // → BCrypt 특성상 같은 평문이라도 매번 다른 해시값 생성
+        // → 따라서 해시값 비교가 아닌 matches()로 비교
+        if (passwordEncoder.matches(request.newPassword(), user.getPassword())) {
+            throw new BusinessException(ErrorCode.SAME_AS_CURRENT_PASSWORD);
+        }
+
+        // 4. 새 비밀번호와 확인 비밀번호 일치 여부 확인
+        if (!request.newPassword().equals(request.confirmPassword())) {
+            throw new BusinessException(ErrorCode.PASSWORD_NOT_MATCHED);
+        }
+
+        // 5. 새 비밀번호 암호화 후 변경
+        String encodedPassword = passwordEncoder.encode(request.newPassword());
+        user.changePassword(encodedPassword);
+    }
+
+
+
+
 
     // 본인 제외 닉네임 중복 체크
     // existsByNicknameAndIdNot 이유:

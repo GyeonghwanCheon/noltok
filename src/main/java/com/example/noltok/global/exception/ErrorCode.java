@@ -18,6 +18,9 @@ public enum ErrorCode {
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, "사용자를 찾을 수 없습니다."),
     DUPLICATE_EMAIL(HttpStatus.CONFLICT, "이미 사용 중인 이메일입니다."),
     DUPLICATE_NICKNAME(HttpStatus.CONFLICT, "이미 사용 중인 닉네임입니다."),
+    PASSWORD_NOT_MATCHED(HttpStatus.UNPROCESSABLE_ENTITY, "새 비밀번호와 확인 비밀번호가 일치하지 않습니다."),
+    SAME_AS_CURRENT_PASSWORD(HttpStatus.UNPROCESSABLE_ENTITY, "현재 비밀번호와 동일한 비밀번호로 변경할 수 없습니다."),
+
 
     // Common
     INVALID_INPUT(HttpStatus.BAD_REQUEST, "잘못된 입력값입니다."),

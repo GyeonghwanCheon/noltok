@@ -9,7 +9,10 @@ import java.util.Optional;
 
 public interface UserRepository extends JpaRepository<User, Long> {
 
-    boolean existsByEmail(String email);
+    // existsByEmail → existsByEmailAndIsActive로 교체
+    // 이유: 탈퇴 유저(isActive=false)는 중복 이메일로 처리하지 않음
+    //       탈퇴 후 동일 이메일 재가입 허용
+    boolean existsByEmailAndIsActive(String email, boolean isActive);
 
     Optional<User> findByEmail(String email);
 

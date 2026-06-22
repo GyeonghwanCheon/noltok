@@ -110,7 +110,7 @@ public class AuthService {
 
 
     private void validateDuplicateEmail(String email) {
-        if (userRepository.existsByEmail(email)) {
+        if (userRepository.existsByEmailAndIsActive(email, true)) {
             throw new BusinessException(ErrorCode.DUPLICATE_EMAIL);
         }
     }

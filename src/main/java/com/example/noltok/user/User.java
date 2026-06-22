@@ -29,6 +29,12 @@ public class User extends BaseEntity {
     @Column(name = "profile_image_url", length = 500)
     private String profileImageUrl;
 
+    @Column(name = "is_active", nullable = false)
+    private boolean isActive = true;
+    // isActive 기본값 true 이유:
+    // → 회원가입 시 자동으로 활성 상태
+    // → deactivate() 호출 시에만 false로 변경
+
     private User(String email, String password, String nickname) {
         this.email = email;
         this.password = password;
@@ -58,5 +64,13 @@ public class User extends BaseEntity {
     // → 평문 비밀번호가 Entity 안으로 들어오지 않도록 설계
     public void changePassword(String encodedPassword) {
         this.password = encodedPassword;
+    }
+
+    // deactivate 설계 의도:
+    // → DB에서 실제로 삭제하지 않고 isActive = false로 변경
+    // → 탈퇴 유저 데이터 보존 (환불, 분쟁 처리 등에 활용 가능)
+    // → 복구 가능 (관리자가 isActive = true로 되돌릴 수 있음)
+    public void deactivate() {
+        this.isActive = false;
     }
 }

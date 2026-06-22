@@ -1,11 +1,9 @@
 package com.example.noltok.user;
 
+import com.example.noltok.auth.RefreshTokenRepository;
 import com.example.noltok.global.exception.BusinessException;
 import com.example.noltok.global.exception.ErrorCode;
-import com.example.noltok.user.dto.ChangePasswordRequest;
-import com.example.noltok.user.dto.UpdateProfileRequest;
-import com.example.noltok.user.dto.UserResponse;
-import com.example.noltok.user.dto.UserSummaryResponse;
+import com.example.noltok.user.dto.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -19,6 +17,7 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final RefreshTokenRepository refreshTokenRepository;
 
 
     // 내 정보 조회 (읽기 전용 → readOnly = true)
@@ -117,4 +116,24 @@ public class UserService {
             throw new BusinessException(ErrorCode.DUPLICATE_NICKNAME);
         }
     }
+
+
+    @Transactional
+    public DeleteAccountResponse deleteMyAccount(Long userId) {
+        // 1. userId로 User 조회
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+
+        // 2. Soft Delete 처리
+        // → DB에서 실제 삭제하지 않고 isActive = false로 변경
+        user.deactivate();
+
+        // 3. Refresh Token 삭제
+        // → 탈퇴 후 토큰 재발급 차단
+        // → 로그아웃과 동일한 처리
+        refreshTokenRepository.deleteByUserId(userId);
+
+        return new DeleteAccountResponse(userId);
+    }
+
 }

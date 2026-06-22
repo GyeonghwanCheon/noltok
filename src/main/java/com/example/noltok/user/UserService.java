@@ -101,6 +101,13 @@ public class UserService {
         //   에러가 아니라 빈 배열로 응답하는 게 RESTful 관례
     }
 
+    // 유저 상세 조회
+    @Transactional(readOnly = true)
+    public UserSummaryResponse getUserDetail(Long targetUserId) {
+        User user = userRepository.findById(targetUserId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        return UserSummaryResponse.from(user);
+    }
 
     // 본인 제외 닉네임 중복 체크
     // existsByNicknameAndIdNot 이유:

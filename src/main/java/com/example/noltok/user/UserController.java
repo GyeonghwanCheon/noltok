@@ -65,5 +65,16 @@ public class UserController {
         return ResponseEntity.ok(ApiResponse.ok(response));
     }
 
+    // 유저 상세 조회
+    // @PathVariable 이유:
+    // → 특정 리소스(userId)를 식별하는 것이므로 경로에 포함하는 게 RESTful
+    // → GET /api/v1/users/1 형태
+    @GetMapping("/{userId}")
+    public ResponseEntity<ApiResponse<UserSummaryResponse>> getUserDetail(
+            @PathVariable Long userId) {
+        UserSummaryResponse response = userService.getUserDetail(userId);
+        return ResponseEntity.ok(ApiResponse.ok(response));
+    }
+
 
 }

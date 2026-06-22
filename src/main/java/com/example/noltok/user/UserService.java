@@ -2,6 +2,7 @@ package com.example.noltok.user;
 
 import com.example.noltok.global.exception.BusinessException;
 import com.example.noltok.global.exception.ErrorCode;
+import com.example.noltok.user.dto.UpdateProfileRequest;
 import com.example.noltok.user.dto.UserResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -26,4 +27,34 @@ public class UserService {
         return UserResponse.from(user);
     }
 
+
+    @Transactional
+    public UserResponse updateMyInfo(Long userId, UpdateProfileRequest request) {
+
+        // 1. userId로 User 조회
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+
+        // 2. 닉네임 변경 요청이 있을 때만 중복 체크
+        // → null이면 닉네임 변경 요청이 없는 것이므로 체크 불필요
+        if (request.nickname() != null) {
+            validateDuplicateNickname(request.nickname(), userId);
+        }
+
+        // 3. Entity 변경 (변경감지로 자동 UPDATE 쿼리 실행)
+        // → @Transactional이 있으므로 save() 호출 없이도 DB에 반영됨
+        // → JPA 변경감지(dirty checking): 트랜잭션 종료 시 변경된 필드 자동 UPDATE
+        user.updateProfile(request.nickname(), request.profileImageUrl());
+
+        return UserResponse.from(user);
+    }
+
+    // 본인 제외 닉네임 중복 체크
+    // existsByNicknameAndIdNot 이유:
+    // → 본인이 동일한 닉네임으로 수정 요청 시 중복 에러 방지
+    private void validateDuplicateNickname(String nickname, Long userId) {
+        if (userRepository.existsByNicknameAndIdNot(nickname, userId)) {
+            throw new BusinessException(ErrorCode.DUPLICATE_NICKNAME);
+        }
+    }
 }

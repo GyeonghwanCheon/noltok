@@ -23,7 +23,7 @@ public class User extends BaseEntity {
     @Column(name = "password", nullable = false, length = 255)
     private String password;
 
-    @Column(name = "nickname", nullable = false, length = 20)
+    @Column(name = "nickname", nullable = false, unique = true, length = 20)
     private String nickname;
 
     @Column(name = "profile_image_url", length = 500)
@@ -37,5 +37,18 @@ public class User extends BaseEntity {
 
     public static User create(String email, String encodedPassword, String nickname) {
         return new User(email, encodedPassword, nickname);
+    }
+
+    // updateProfile 설계 의도:
+    // → null로 들어온 필드는 기존 값 유지 (선택적 수정)
+    // → "홍길동"이 nickname을 null로 보내면 기존 "홍길동" 그대로 유지
+    // → profileImageUrl도 동일한 방식
+    public void updateProfile(String nickname, String profileImageUrl) {
+        if (nickname != null) {
+            this.nickname = nickname;
+        }
+        if (profileImageUrl != null) {
+            this.profileImageUrl = profileImageUrl;
+        }
     }
 }

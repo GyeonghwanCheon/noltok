@@ -3,6 +3,7 @@ package com.example.noltok.user;
 import com.example.noltok.global.response.ApiResponse;
 import com.example.noltok.user.dto.SignUpRequest;
 import com.example.noltok.user.dto.SignUpResponse;
+import com.example.noltok.user.dto.UpdateProfileRequest;
 import com.example.noltok.user.dto.UserResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -30,6 +31,17 @@ public class UserController {
         return ResponseEntity.ok(ApiResponse.ok(response));
     }
 
+
+    @PatchMapping("/me")
+    public ResponseEntity<ApiResponse<UserResponse>> updateMyInfo(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @Valid @RequestBody UpdateProfileRequest request) {
+
+        Long userId = Long.parseLong(userDetails.getUsername());
+        UserResponse response = userService.updateMyInfo(userId, request);
+
+        return ResponseEntity.ok(ApiResponse.ok("회원 정보가 수정되었습니다.", response));
+    }
 
 
 }

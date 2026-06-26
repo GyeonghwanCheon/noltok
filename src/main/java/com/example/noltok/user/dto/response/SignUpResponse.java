@@ -1,4 +1,4 @@
-package com.example.noltok.user.dto;
+package com.example.noltok.user.dto.response;
 
 import com.example.noltok.user.User;
 

@@ -21,6 +21,16 @@ public enum ErrorCode {
     PASSWORD_NOT_MATCHED(HttpStatus.UNPROCESSABLE_ENTITY, "새 비밀번호와 확인 비밀번호가 일치하지 않습니다."),
     SAME_AS_CURRENT_PASSWORD(HttpStatus.UNPROCESSABLE_ENTITY, "현재 비밀번호와 동일한 비밀번호로 변경할 수 없습니다."),
 
+    // ChatRoom
+    CHATROOM_NOT_FOUND(HttpStatus.NOT_FOUND, "채팅방을 찾을 수 없습니다."),
+    NOT_CHATROOM_MEMBER(HttpStatus.FORBIDDEN, "채팅방 멤버가 아닙니다."),
+    ALREADY_CHATROOM_MEMBER(HttpStatus.UNPROCESSABLE_ENTITY, "이미 채팅방 멤버입니다."),
+    DIRECT_ROOM_ALREADY_EXISTS(HttpStatus.UNPROCESSABLE_ENTITY, "이미 해당 유저와의 1:1 채팅방이 존재합니다."),
+    INVALID_DIRECT_ROOM_MEMBER_COUNT(HttpStatus.BAD_REQUEST, "1:1 채팅방은 상대방 1명만 초대할 수 있습니다."),
+    NOT_CHATROOM_ADMIN(HttpStatus.FORBIDDEN, "채팅방 관리자만 사용할 수 있는 기능입니다."),
+    CANNOT_INVITE_TO_DIRECT_ROOM(HttpStatus.FORBIDDEN, "1:1 채팅방에는 멤버를 초대할 수 없습니다."),
+    CANNOT_INVITE_YOURSELF(HttpStatus.BAD_REQUEST, "본인을 채팅방에 초대할 수 없습니다."),
+    DUPLICATE_INVITE_NICKNAME(HttpStatus.BAD_REQUEST, "초대 목록에 중복된 닉네임이 있습니다."),
 
     // Common
     INVALID_INPUT(HttpStatus.BAD_REQUEST, "잘못된 입력값입니다."),

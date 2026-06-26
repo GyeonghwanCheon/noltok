@@ -35,4 +35,8 @@ public interface UserRepository extends JpaRepository<User, Long> {
             @Param("nickname") String nickname,
             @Param("userId") Long userId
     );
+
+    Optional<User> findByNickname(String nickname);
+    // 이유: 채팅방 생성/초대 시 닉네임으로 유저를 찾아야 함
+    //       existsByNicknameAndIdNot()과 별개로 User 객체 자체가 필요
 }

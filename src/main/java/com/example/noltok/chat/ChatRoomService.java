@@ -1,11 +1,13 @@
 package com.example.noltok.chat;
 
 import com.example.noltok.chat.dto.MemberDto;
+import com.example.noltok.chat.dto.SearchRoomDto;
 import com.example.noltok.chat.dto.request.CreateRoomRequest;
 import com.example.noltok.chat.dto.response.ChatRoomDetailResponse;
 import com.example.noltok.chat.dto.response.ChatRoomListResponse;
 import com.example.noltok.chat.dto.ChatRoomSummaryDto;
 import com.example.noltok.chat.dto.response.ChatRoomResponse;
+import com.example.noltok.chat.dto.response.ChatRoomSearchResponse;
 import com.example.noltok.global.exception.BusinessException;
 import com.example.noltok.global.exception.ErrorCode;
 import com.example.noltok.user.User;
@@ -138,7 +140,27 @@ public class ChatRoomService {
         return ChatRoomDetailResponse.of(chatRoom, myMembership, memberDtos);
     }
 
+    // searchRooms() 메서드만 추가, 기존 코드 유지
+    @Transactional(readOnly = true)
+    public ChatRoomSearchResponse searchRooms(String name) {
 
+        // 1. GROUP 채팅방 이름 부분일치 검색
+        List<ChatRoom> chatRooms = chatRoomRepository.searchByRoomname(name);
+
+        // 2. 각 채팅방의 활성 멤버 수 조회
+        // ⚠️ N+1 발생 지점:
+        // → 검색된 채팅방 수만큼 COUNT 쿼리 발생
+        // → 추후 한 번의 쿼리로 최적화 예정
+        List<SearchRoomDto> rooms = chatRooms.stream()
+                .map(room -> {
+                    int memberCount = chatRoomMemberRepository
+                            .countByChatRoomIdAndIsActiveTrue(room.getId());
+                    return SearchRoomDto.of(room, memberCount);
+                })
+                .toList();
+
+        return ChatRoomSearchResponse.of(rooms);
+    }
 
     // DIRECT 채팅방 전용 검증
     // → 1명만 초대 가능

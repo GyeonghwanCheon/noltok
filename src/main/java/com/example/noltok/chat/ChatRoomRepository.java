@@ -8,8 +8,16 @@ import java.util.List;
 
 public interface ChatRoomRepository extends JpaRepository<ChatRoom, Long> {
 
-    // 채팅방 이름 부분일치 검색 (활성 채팅방만)
-    @Query("SELECT r FROM ChatRoom r WHERE r.roomname LIKE %:roomname% AND r.isActive = true")
+    // 기존 searchByRoomname() 수정
+    // → GROUP 채팅방만 검색, DIRECT 제외
+    // → 이유: DIRECT 방은 이름이 없고 private한 성격
+    //         검색 결과에 노출되면 안 됨
+    @Query("""
+        SELECT r FROM ChatRoom r
+        WHERE r.roomname LIKE %:roomname%
+        AND r.type = 'GROUP'
+        AND r.isActive = true
+    """)
     List<ChatRoom> searchByRoomname(@Param("roomname") String roomname);
 
     // DIRECT 채팅방 중복 체크

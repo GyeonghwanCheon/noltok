@@ -4,6 +4,7 @@ import com.example.noltok.chat.dto.request.CreateRoomRequest;
 import com.example.noltok.chat.dto.response.ChatRoomDetailResponse;
 import com.example.noltok.chat.dto.response.ChatRoomListResponse;
 import com.example.noltok.chat.dto.response.ChatRoomResponse;
+import com.example.noltok.chat.dto.response.ChatRoomSearchResponse;
 import com.example.noltok.global.response.ApiResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -38,6 +39,16 @@ public class ChatRoomController {
             @AuthenticationPrincipal UserDetails userDetails) {
         Long userId = Long.parseLong(userDetails.getUsername());
         ChatRoomListResponse response = chatRoomService.getMyRooms(userId);
+        return ResponseEntity.ok(ApiResponse.ok(response));
+    }
+
+    // /search가 /{roomId} 보다 먼저 선언되어야 함
+    // 이유: Spring은 경로를 위에서 아래로 매핑
+    //       /{roomId} 가 먼저 있으면 "search"를 roomId로 인식할 수 있음
+    @GetMapping("/search")
+    public ResponseEntity<ApiResponse<ChatRoomSearchResponse>> searchRooms(
+            @RequestParam String name) {
+        ChatRoomSearchResponse response = chatRoomService.searchRooms(name);
         return ResponseEntity.ok(ApiResponse.ok(response));
     }
 

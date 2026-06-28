@@ -1,6 +1,8 @@
 package com.example.noltok.chat;
 
 import com.example.noltok.chat.dto.request.CreateRoomRequest;
+import com.example.noltok.chat.dto.response.ChatRoomListResponse;
+import com.example.noltok.chat.dto.response.ChatRoomSummaryDto;
 import com.example.noltok.chat.dto.response.ChatRoomResponse;
 import com.example.noltok.global.exception.BusinessException;
 import com.example.noltok.global.exception.ErrorCode;
@@ -77,6 +79,27 @@ public class ChatRoomService {
         int memberCount = 1 + invitedUsers.size();
         return ChatRoomResponse.of(chatRoom, memberCount, ChatRoomRole.ADMIN);
     }
+
+    // 내 채팅방 목록 조회
+    // readOnly = true 이유: 조회만 하는 메서드, 변경감지 생략으로 성능 최적화
+    @Transactional(readOnly = true)
+    public ChatRoomListResponse getMyRooms(Long userId) {
+
+        // 1. 내가 활성 멤버로 있는 채팅방 멤버십 전체 조회
+        List<ChatRoomMember> myMemberships = chatRoomMemberRepository
+                .findActiveRoomsByUserId(userId);
+
+        // 2. 각 멤버십에서 채팅방 정보 + 내 역할 추출
+        // → updatedAt 기준 내림차순 정렬 (최근 활동 순)
+        List<ChatRoomSummaryDto> rooms = myMemberships.stream()
+                .map(member -> ChatRoomSummaryDto.of(member.getChatRoom(), member))
+                .sorted((a, b) -> b.updatedAt().compareTo(a.updatedAt()))
+                .toList();
+
+        return ChatRoomListResponse.of(rooms);
+    }
+
+
 
     // DIRECT 채팅방 전용 검증
     // → 1명만 초대 가능

@@ -1,5 +1,7 @@
 package com.example.noltok.chat.dto.response;
 
+import com.example.noltok.chat.dto.ChatRoomSummaryDto;
+
 import java.util.List;
 
 public record ChatRoomListResponse(

@@ -1,8 +1,10 @@
 package com.example.noltok.chat;
 
+import com.example.noltok.chat.dto.MemberDto;
 import com.example.noltok.chat.dto.request.CreateRoomRequest;
+import com.example.noltok.chat.dto.response.ChatRoomDetailResponse;
 import com.example.noltok.chat.dto.response.ChatRoomListResponse;
-import com.example.noltok.chat.dto.response.ChatRoomSummaryDto;
+import com.example.noltok.chat.dto.ChatRoomSummaryDto;
 import com.example.noltok.chat.dto.response.ChatRoomResponse;
 import com.example.noltok.global.exception.BusinessException;
 import com.example.noltok.global.exception.ErrorCode;
@@ -97,6 +99,43 @@ public class ChatRoomService {
                 .toList();
 
         return ChatRoomListResponse.of(rooms);
+    }
+
+
+    // getRoomDetail() 메서드만 추가, 기존 코드 유지
+    @Transactional(readOnly = true)
+    public ChatRoomDetailResponse getRoomDetail(Long userId, Long roomId) {
+
+        // 1. 채팅방 존재 확인
+        ChatRoom chatRoom = chatRoomRepository.findById(roomId)
+                .filter(ChatRoom::isActive)
+                .orElseThrow(() -> new BusinessException(ErrorCode.CHATROOM_NOT_FOUND));
+
+        // 2. 요청자가 멤버인지 확인
+        // → 채팅방 존재 확인 후에 멤버 체크하는 이유:
+        //   순서가 반대면 비멤버가 "채팅방이 존재하는지 여부"를 알 수 있음
+        ChatRoomMember myMembership = chatRoomMemberRepository
+                .findByChatRoomIdAndUserIdAndIsActiveTrue(roomId, userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_CHATROOM_MEMBER));
+
+        // 3. 채팅방 전체 활성 멤버 목록 조회
+        List<ChatRoomMember> members = chatRoomMemberRepository
+                .findByChatRoomIdAndIsActiveTrue(roomId);
+
+        // 4. 각 멤버의 userId로 User 정보 조회
+        // ⚠️ N+1 발생 지점:
+        // → 멤버 수만큼 SELECT 쿼리 발생
+        // → 멤버가 100명이면 100번 쿼리
+        // → 추후 userRepository.findAllById(userIds)로 한 번에 조회하는 방식으로 최적화 예정
+        List<MemberDto> memberDtos = members.stream()
+                .map(member -> {
+                    User user = userRepository.findById(member.getUserId())
+                            .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+                    return MemberDto.of(member, user);
+                })
+                .toList();
+
+        return ChatRoomDetailResponse.of(chatRoom, myMembership, memberDtos);
     }
 
 

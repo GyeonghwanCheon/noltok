@@ -1,4 +1,4 @@
-package com.example.noltok.chat.dto.response;
+package com.example.noltok.chat.dto;
 
 import com.example.noltok.chat.ChatRoom;
 import com.example.noltok.chat.ChatRoomMember;

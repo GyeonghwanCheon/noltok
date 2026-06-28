@@ -1,6 +1,7 @@
 package com.example.noltok.chat;
 
 import com.example.noltok.chat.dto.request.CreateRoomRequest;
+import com.example.noltok.chat.dto.response.ChatRoomDetailResponse;
 import com.example.noltok.chat.dto.response.ChatRoomListResponse;
 import com.example.noltok.chat.dto.response.ChatRoomResponse;
 import com.example.noltok.global.response.ApiResponse;
@@ -37,6 +38,15 @@ public class ChatRoomController {
             @AuthenticationPrincipal UserDetails userDetails) {
         Long userId = Long.parseLong(userDetails.getUsername());
         ChatRoomListResponse response = chatRoomService.getMyRooms(userId);
+        return ResponseEntity.ok(ApiResponse.ok(response));
+    }
+
+    @GetMapping("/{roomId}")
+    public ResponseEntity<ApiResponse<ChatRoomDetailResponse>> getRoomDetail(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable Long roomId) {
+        Long userId = Long.parseLong(userDetails.getUsername());
+        ChatRoomDetailResponse response = chatRoomService.getRoomDetail(userId, roomId);
         return ResponseEntity.ok(ApiResponse.ok(response));
     }
 }

@@ -79,5 +79,15 @@ public class ChatRoomMember {
         this.isActive = false;
     }
 
+    // 재입장 처리 (나갔다가 다시 들어오는 케이스)
+    // → 새 멤버십 생성 대신 기존 멤버십 재활성화
+    // → joinedAt 갱신 이유: 재입장 시점으로 업데이트
+    // → role은 MEMBER로 고정 (재입장 시 ADMIN 권한 미부여)
+    public void reactivate() {
+        this.isActive = true;
+        this.role = ChatRoomRole.MEMBER;
+        this.joinedAt = LocalDateTime.now();
+    }
+
 
 }

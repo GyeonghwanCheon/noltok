@@ -27,4 +27,9 @@ public interface ChatRoomMemberRepository extends JpaRepository<ChatRoomMember, 
 
     // 특정 방의 활성 멤버 수 조회
     int countByChatRoomIdAndIsActiveTrue(Long roomId);
+
+    // isActive 관계없이 멤버십 조회
+    // → 재입장 케이스 처리용
+    // → 나갔던 유저(isActive=false)의 멤버십을 찾아서 reactivate() 호출
+    Optional<ChatRoomMember> findByChatRoomIdAndUserId(Long roomId, Long userId);
 }

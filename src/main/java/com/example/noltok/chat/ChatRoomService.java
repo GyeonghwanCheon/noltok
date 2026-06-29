@@ -3,11 +3,8 @@ package com.example.noltok.chat;
 import com.example.noltok.chat.dto.MemberDto;
 import com.example.noltok.chat.dto.SearchRoomDto;
 import com.example.noltok.chat.dto.request.CreateRoomRequest;
-import com.example.noltok.chat.dto.response.ChatRoomDetailResponse;
-import com.example.noltok.chat.dto.response.ChatRoomListResponse;
+import com.example.noltok.chat.dto.response.*;
 import com.example.noltok.chat.dto.ChatRoomSummaryDto;
-import com.example.noltok.chat.dto.response.ChatRoomResponse;
-import com.example.noltok.chat.dto.response.ChatRoomSearchResponse;
 import com.example.noltok.global.exception.BusinessException;
 import com.example.noltok.global.exception.ErrorCode;
 import com.example.noltok.user.User;
@@ -18,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -181,4 +179,47 @@ public class ChatRoomService {
             throw new BusinessException(ErrorCode.DIRECT_ROOM_ALREADY_EXISTS);
         }
     }
+
+    // joinRoom() 메서드만 추가, 기존 코드 유지
+    @Transactional
+    public ChatRoomJoinResponse joinRoom(Long userId, Long roomId) {
+
+        // 1. 채팅방 존재 확인
+        ChatRoom chatRoom = chatRoomRepository.findById(roomId)
+                .filter(ChatRoom::isActive)
+                .orElseThrow(() -> new BusinessException(ErrorCode.CHATROOM_NOT_FOUND));
+
+        // 2. DIRECT 채팅방 입장 불가
+        // → DIRECT는 생성 시에만 멤버가 결정됨
+        if (chatRoom.getType() == ChatRoomType.DIRECT) {
+            throw new BusinessException(ErrorCode.CANNOT_INVITE_TO_DIRECT_ROOM);
+        }
+
+        // 3. 기존 멤버십 조회 (isActive 관계없이)
+        Optional<ChatRoomMember> existingMember = chatRoomMemberRepository
+                .findByChatRoomIdAndUserId(roomId, userId);
+
+        if (existingMember.isPresent()) {
+            ChatRoomMember member = existingMember.get();
+
+            if (member.isActive()) {
+                // 현재 활성 멤버 → 이미 입장 중
+                throw new BusinessException(ErrorCode.ALREADY_CHATROOM_MEMBER);
+            } else {
+                // 나갔던 멤버 → 재입장 처리
+                member.reactivate();
+            }
+        } else {
+            // 신규 입장
+            ChatRoomMember newMember = ChatRoomMember.create(chatRoom, userId, ChatRoomRole.MEMBER);
+            chatRoomMemberRepository.save(newMember);
+        }
+
+        // 4. userId로 nickname 조회 후 메시지 생성
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+
+        return ChatRoomJoinResponse.of(roomId, ChatRoomRole.MEMBER.name(), user.getNickname());
+    }
+
 }

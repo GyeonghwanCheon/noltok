@@ -1,7 +1,6 @@
 package com.example.noltok.chat.dto.request;
 
 import com.example.noltok.chat.ChatRoomType;
-import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 

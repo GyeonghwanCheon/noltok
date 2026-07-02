@@ -46,4 +46,8 @@ public class Friend extends BaseEntity {
         this.receiverId = receiverId;
         this.status = FriendStatus.PENDING;
     }
+
+    public void accept() {
+        this.status = FriendStatus.ACCEPTED;
+    }
 }

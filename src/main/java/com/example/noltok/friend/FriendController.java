@@ -1,6 +1,7 @@
 package com.example.noltok.friend;
 
 import com.example.noltok.friend.dto.request.FriendRequestRequest;
+import com.example.noltok.friend.dto.response.FriendAcceptResponse;
 import com.example.noltok.friend.dto.response.FriendRequestResponse;
 import com.example.noltok.global.response.ApiResponse;
 import jakarta.validation.Valid;
@@ -9,6 +10,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -31,5 +34,15 @@ public class FriendController {
         return ResponseEntity
                 .status(HttpStatus.CREATED)
                 .body(ApiResponse.ok("친구 요청을 보냈습니다.", response));
+    }
+
+    @PatchMapping("/{friendId}/accept")
+    public ResponseEntity<ApiResponse<FriendAcceptResponse>> acceptRequest(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable Long friendId) {
+
+        Long userId = Long.parseLong(userDetails.getUsername());
+        FriendAcceptResponse response = friendService.acceptRequest(userId, friendId);
+        return ResponseEntity.ok(ApiResponse.ok(response));
     }
 }

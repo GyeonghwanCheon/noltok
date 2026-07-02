@@ -1,6 +1,7 @@
 package com.example.noltok.friend;
 
 import com.example.noltok.friend.dto.request.FriendRequestRequest;
+import com.example.noltok.friend.dto.response.FriendAcceptResponse;
 import com.example.noltok.friend.dto.response.FriendRequestResponse;
 import com.example.noltok.global.exception.BusinessException;
 import com.example.noltok.global.exception.ErrorCode;
@@ -43,5 +44,27 @@ public class FriendService {
         }
         existing.reopen(requesterId, receiverId);
         return existing;
+    }
+
+    @Transactional
+    public FriendAcceptResponse acceptRequest(Long userId, Long friendId) {
+        Friend friend = friendRepository.findById(friendId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.FRIEND_NOT_FOUND));
+
+        // 받은 사람만 수락 가능
+        if (!friend.getReceiverId().equals(userId)) {
+            throw new BusinessException(ErrorCode.NOT_FRIEND_REQUEST_RECEIVER);
+        }
+
+        if (friend.getStatus() != FriendStatus.PENDING) {
+            throw new BusinessException(ErrorCode.FRIEND_REQUEST_ALREADY_PROCESSED);
+        }
+
+        friend.accept();
+
+        User requester = userRepository.findById(friend.getRequesterId())
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+
+        return FriendAcceptResponse.of(friend, requester.getNickname());
     }
 }

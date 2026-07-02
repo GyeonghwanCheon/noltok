@@ -35,6 +35,9 @@ public enum ErrorCode {
     // Friend
     CANNOT_REQUEST_YOURSELF(HttpStatus.BAD_REQUEST, "본인에게 친구 요청을 보낼 수 없습니다."),
     FRIEND_REQUEST_ALREADY_EXISTS(HttpStatus.CONFLICT, "이미 친구이거나 요청이 진행 중입니다."),
+    FRIEND_NOT_FOUND(HttpStatus.NOT_FOUND, "친구 요청을 찾을 수 없습니다."),
+    NOT_FRIEND_REQUEST_RECEIVER(HttpStatus.FORBIDDEN, "본인이 받은 요청이 아닙니다."),
+    FRIEND_REQUEST_ALREADY_PROCESSED(HttpStatus.UNPROCESSABLE_ENTITY, "이미 처리된 요청입니다."),
 
     // Common
     INVALID_INPUT(HttpStatus.BAD_REQUEST, "잘못된 입력값입니다."),

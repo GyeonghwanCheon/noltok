@@ -6,6 +6,7 @@ import com.example.noltok.friend.dto.response.FriendListResponse;
 import com.example.noltok.friend.dto.response.FriendReceivedListResponse;
 import com.example.noltok.friend.dto.response.FriendRejectResponse;
 import com.example.noltok.friend.dto.response.FriendRequestResponse;
+import com.example.noltok.friend.dto.response.FriendSentListResponse;
 import com.example.noltok.global.response.ApiResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -75,6 +76,15 @@ public class FriendController {
 
         Long userId = Long.parseLong(userDetails.getUsername());
         FriendReceivedListResponse response = friendService.getReceivedRequests(userId);
+        return ResponseEntity.ok(ApiResponse.ok(response));
+    }
+
+    @GetMapping("/sent")
+    public ResponseEntity<ApiResponse<FriendSentListResponse>> getSentRequests(
+            @AuthenticationPrincipal UserDetails userDetails) {
+
+        Long userId = Long.parseLong(userDetails.getUsername());
+        FriendSentListResponse response = friendService.getSentRequests(userId);
         return ResponseEntity.ok(ApiResponse.ok(response));
     }
 }

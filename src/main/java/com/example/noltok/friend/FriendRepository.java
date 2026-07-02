@@ -25,4 +25,8 @@ public interface FriendRepository extends JpaRepository<Friend, Long> {
     // 받은 친구 요청 목록 조회용
     // → 방향이 고정(receiverId)이라 OR 조건 없이 단순 쿼리로 충분
     List<Friend> findAllByReceiverIdAndStatus(Long receiverId, FriendStatus status);
+
+    // 보낸 친구 요청 목록 조회용
+    // → findAllByReceiverIdAndStatus()와 대칭, 방향만 requesterId로 반대
+    List<Friend> findAllByRequesterIdAndStatus(Long requesterId, FriendStatus status);
 }

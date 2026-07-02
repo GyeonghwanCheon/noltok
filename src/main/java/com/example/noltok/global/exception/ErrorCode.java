@@ -32,6 +32,10 @@ public enum ErrorCode {
     CANNOT_INVITE_YOURSELF(HttpStatus.BAD_REQUEST, "본인을 채팅방에 초대할 수 없습니다."),
     DUPLICATE_INVITE_NICKNAME(HttpStatus.BAD_REQUEST, "초대 목록에 중복된 닉네임이 있습니다."),
 
+    // Friend
+    CANNOT_REQUEST_YOURSELF(HttpStatus.BAD_REQUEST, "본인에게 친구 요청을 보낼 수 없습니다."),
+    FRIEND_REQUEST_ALREADY_EXISTS(HttpStatus.CONFLICT, "이미 친구이거나 요청이 진행 중입니다."),
+
     // Common
     INVALID_INPUT(HttpStatus.BAD_REQUEST, "잘못된 입력값입니다."),
     INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "서버 오류가 발생했습니다.");

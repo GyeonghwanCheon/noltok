@@ -5,6 +5,7 @@ import com.example.noltok.friend.dto.ReceivedFriendRequestDto;
 import com.example.noltok.friend.dto.SentFriendRequestDto;
 import com.example.noltok.friend.dto.request.FriendRequestRequest;
 import com.example.noltok.friend.dto.response.FriendAcceptResponse;
+import com.example.noltok.friend.dto.response.FriendDeleteResponse;
 import com.example.noltok.friend.dto.response.FriendListResponse;
 import com.example.noltok.friend.dto.response.FriendReceivedListResponse;
 import com.example.noltok.friend.dto.response.FriendRejectResponse;
@@ -175,5 +176,28 @@ public class FriendService {
                 .toList();
 
         return FriendSentListResponse.of(requests);
+    }
+
+    @Transactional
+    public FriendDeleteResponse deleteFriend(Long userId, Long friendId) {
+        // 1. friendId로 조회, ACCEPTED 상태만 삭제 대상
+        Friend friend = friendRepository.findById(friendId)
+                .filter(f -> f.getStatus() == FriendStatus.ACCEPTED)
+                .orElseThrow(() -> new BusinessException(ErrorCode.FRIEND_NOT_FOUND));
+
+        // 2. 당사자(requester 또는 receiver)만 삭제 가능
+        if (!friend.getRequesterId().equals(userId) && !friend.getReceiverId().equals(userId)) {
+            throw new BusinessException(ErrorCode.NOT_FRIEND_MEMBER);
+        }
+
+        // 3. 응답 메시지에 넣을 상대방 닉네임 조회
+        Long friendUserId = friend.getRequesterId().equals(userId) ? friend.getReceiverId() : friend.getRequesterId();
+        User friendUser = userRepository.findById(friendUserId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+
+        // 4. Hard Delete (docs/decision-log.md 2026-07-02 결정)
+        friendRepository.delete(friend);
+
+        return FriendDeleteResponse.of(friendId, friendUser.getNickname());
     }
 }

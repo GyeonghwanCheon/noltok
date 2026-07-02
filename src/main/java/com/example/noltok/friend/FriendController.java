@@ -2,6 +2,7 @@ package com.example.noltok.friend;
 
 import com.example.noltok.friend.dto.request.FriendRequestRequest;
 import com.example.noltok.friend.dto.response.FriendAcceptResponse;
+import com.example.noltok.friend.dto.response.FriendDeleteResponse;
 import com.example.noltok.friend.dto.response.FriendListResponse;
 import com.example.noltok.friend.dto.response.FriendReceivedListResponse;
 import com.example.noltok.friend.dto.response.FriendRejectResponse;
@@ -14,6 +15,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -85,6 +87,16 @@ public class FriendController {
 
         Long userId = Long.parseLong(userDetails.getUsername());
         FriendSentListResponse response = friendService.getSentRequests(userId);
+        return ResponseEntity.ok(ApiResponse.ok(response));
+    }
+
+    @DeleteMapping("/{friendId}")
+    public ResponseEntity<ApiResponse<FriendDeleteResponse>> deleteFriend(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable Long friendId) {
+
+        Long userId = Long.parseLong(userDetails.getUsername());
+        FriendDeleteResponse response = friendService.deleteFriend(userId, friendId);
         return ResponseEntity.ok(ApiResponse.ok(response));
     }
 }

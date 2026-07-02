@@ -2,6 +2,7 @@ package com.example.noltok.friend;
 
 import com.example.noltok.friend.dto.request.FriendRequestRequest;
 import com.example.noltok.friend.dto.response.FriendAcceptResponse;
+import com.example.noltok.friend.dto.response.FriendCancelResponse;
 import com.example.noltok.friend.dto.response.FriendDeleteResponse;
 import com.example.noltok.friend.dto.response.FriendListResponse;
 import com.example.noltok.friend.dto.response.FriendReceivedListResponse;
@@ -97,6 +98,16 @@ public class FriendController {
 
         Long userId = Long.parseLong(userDetails.getUsername());
         FriendDeleteResponse response = friendService.deleteFriend(userId, friendId);
+        return ResponseEntity.ok(ApiResponse.ok(response));
+    }
+
+    @DeleteMapping("/{friendId}/cancel")
+    public ResponseEntity<ApiResponse<FriendCancelResponse>> cancelRequest(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable Long friendId) {
+
+        Long userId = Long.parseLong(userDetails.getUsername());
+        FriendCancelResponse response = friendService.cancelRequest(userId, friendId);
         return ResponseEntity.ok(ApiResponse.ok(response));
     }
 }

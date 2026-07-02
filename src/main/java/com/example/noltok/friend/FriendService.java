@@ -1,7 +1,9 @@
 package com.example.noltok.friend;
 
+import com.example.noltok.friend.dto.FriendDto;
 import com.example.noltok.friend.dto.request.FriendRequestRequest;
 import com.example.noltok.friend.dto.response.FriendAcceptResponse;
+import com.example.noltok.friend.dto.response.FriendListResponse;
 import com.example.noltok.friend.dto.response.FriendRejectResponse;
 import com.example.noltok.friend.dto.response.FriendRequestResponse;
 import com.example.noltok.global.exception.BusinessException;
@@ -12,6 +14,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
 @Service
 @RequiredArgsConstructor
 public class FriendService {
@@ -21,13 +27,16 @@ public class FriendService {
 
     @Transactional
     public FriendRequestResponse sendRequest(Long userId, FriendRequestRequest request) {
+        // 1. 닉네임으로 대상 유저 조회
         User target = userRepository.findByNickname(request.nickname())
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
+        // 2. 본인 여부 체크
         if (target.getId().equals(userId)) {
             throw new BusinessException(ErrorCode.CANNOT_REQUEST_YOURSELF);
         }
 
+        // 3. 기존 관계 조회 → REJECTED면 재사용, 없으면 신규 생성
         Friend friend = friendRepository.findRelationBetween(userId, target.getId())
                 .map(existing -> reuseIfRejected(existing, userId, target.getId()))
                 .orElseGet(() -> friendRepository.save(Friend.create(userId, target.getId())));
@@ -49,20 +58,24 @@ public class FriendService {
 
     @Transactional
     public FriendAcceptResponse acceptRequest(Long userId, Long friendId) {
+        // 1. friendId로 요청 조회
         Friend friend = friendRepository.findById(friendId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.FRIEND_NOT_FOUND));
 
-        // 받은 사람만 수락 가능
+        // 2. 받은 사람만 수락 가능
         if (!friend.getReceiverId().equals(userId)) {
             throw new BusinessException(ErrorCode.NOT_FRIEND_REQUEST_RECEIVER);
         }
 
+        // 3. PENDING 상태만 수락 가능
         if (friend.getStatus() != FriendStatus.PENDING) {
             throw new BusinessException(ErrorCode.FRIEND_REQUEST_ALREADY_PROCESSED);
         }
 
+        // 4. 상태 변경
         friend.accept();
 
+        // 5. 응답 메시지에 넣을 요청자 닉네임 조회
         User requester = userRepository.findById(friend.getRequesterId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
@@ -71,20 +84,48 @@ public class FriendService {
 
     @Transactional
     public FriendRejectResponse rejectRequest(Long userId, Long friendId) {
+        // 1. friendId로 요청 조회
         Friend friend = friendRepository.findById(friendId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.FRIEND_NOT_FOUND));
 
-        // 받은 사람만 거절 가능
+        // 2. 받은 사람만 거절 가능
         if (!friend.getReceiverId().equals(userId)) {
             throw new BusinessException(ErrorCode.NOT_FRIEND_REQUEST_RECEIVER);
         }
 
+        // 3. PENDING 상태만 거절 가능
         if (friend.getStatus() != FriendStatus.PENDING) {
             throw new BusinessException(ErrorCode.FRIEND_REQUEST_ALREADY_PROCESSED);
         }
 
+        // 4. 상태 변경
         friend.reject();
 
         return FriendRejectResponse.of(friend);
+    }
+
+    @Transactional(readOnly = true)
+    public FriendListResponse getFriends(Long userId) {
+        // 1. status=ACCEPTED, 내가 포함된 관계 전부 조회
+        List<Friend> accepted = friendRepository.findAllAcceptedByUserId(userId);
+
+        // 2. 각 관계에서 상대방 userId 추출 (requester/receiver 중 내가 아닌 쪽)
+        List<Long> friendUserIds = accepted.stream()
+                .map(f -> f.getRequesterId().equals(userId) ? f.getReceiverId() : f.getRequesterId())
+                .toList();
+
+        // 3. 상대방 유저 정보 일괄 조회 (N+1 방지, getRoomDetail()과 동일 패턴)
+        Map<Long, User> userMap = userRepository.findAllById(friendUserIds).stream()
+                .collect(Collectors.toMap(User::getId, user -> user));
+
+        // 4. DTO 변환
+        List<FriendDto> friends = accepted.stream()
+                .map(f -> {
+                    Long friendUserId = f.getRequesterId().equals(userId) ? f.getReceiverId() : f.getRequesterId();
+                    return FriendDto.of(f, userMap.get(friendUserId));
+                })
+                .toList();
+
+        return FriendListResponse.of(friends);
     }
 }

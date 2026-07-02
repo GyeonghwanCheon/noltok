@@ -2,6 +2,7 @@ package com.example.noltok.friend;
 
 import com.example.noltok.friend.dto.request.FriendRequestRequest;
 import com.example.noltok.friend.dto.response.FriendAcceptResponse;
+import com.example.noltok.friend.dto.response.FriendListResponse;
 import com.example.noltok.friend.dto.response.FriendRejectResponse;
 import com.example.noltok.friend.dto.response.FriendRequestResponse;
 import com.example.noltok.global.response.ApiResponse;
@@ -11,6 +12,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -54,6 +56,15 @@ public class FriendController {
 
         Long userId = Long.parseLong(userDetails.getUsername());
         FriendRejectResponse response = friendService.rejectRequest(userId, friendId);
+        return ResponseEntity.ok(ApiResponse.ok(response));
+    }
+
+    @GetMapping
+    public ResponseEntity<ApiResponse<FriendListResponse>> getFriends(
+            @AuthenticationPrincipal UserDetails userDetails) {
+
+        Long userId = Long.parseLong(userDetails.getUsername());
+        FriendListResponse response = friendService.getFriends(userId);
         return ResponseEntity.ok(ApiResponse.ok(response));
     }
 }

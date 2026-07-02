@@ -2,6 +2,7 @@ package com.example.noltok.friend;
 
 import com.example.noltok.friend.dto.request.FriendRequestRequest;
 import com.example.noltok.friend.dto.response.FriendAcceptResponse;
+import com.example.noltok.friend.dto.response.FriendRejectResponse;
 import com.example.noltok.friend.dto.response.FriendRequestResponse;
 import com.example.noltok.global.response.ApiResponse;
 import jakarta.validation.Valid;
@@ -43,6 +44,16 @@ public class FriendController {
 
         Long userId = Long.parseLong(userDetails.getUsername());
         FriendAcceptResponse response = friendService.acceptRequest(userId, friendId);
+        return ResponseEntity.ok(ApiResponse.ok(response));
+    }
+
+    @PatchMapping("/{friendId}/reject")
+    public ResponseEntity<ApiResponse<FriendRejectResponse>> rejectRequest(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable Long friendId) {
+
+        Long userId = Long.parseLong(userDetails.getUsername());
+        FriendRejectResponse response = friendService.rejectRequest(userId, friendId);
         return ResponseEntity.ok(ApiResponse.ok(response));
     }
 }

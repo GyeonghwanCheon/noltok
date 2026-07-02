@@ -50,4 +50,8 @@ public class Friend extends BaseEntity {
     public void accept() {
         this.status = FriendStatus.ACCEPTED;
     }
+
+    public void reject() {
+        this.status = FriendStatus.REJECTED;
+    }
 }

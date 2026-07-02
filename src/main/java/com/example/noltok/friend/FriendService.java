@@ -1,9 +1,11 @@
 package com.example.noltok.friend;
 
 import com.example.noltok.friend.dto.FriendDto;
+import com.example.noltok.friend.dto.ReceivedFriendRequestDto;
 import com.example.noltok.friend.dto.request.FriendRequestRequest;
 import com.example.noltok.friend.dto.response.FriendAcceptResponse;
 import com.example.noltok.friend.dto.response.FriendListResponse;
+import com.example.noltok.friend.dto.response.FriendReceivedListResponse;
 import com.example.noltok.friend.dto.response.FriendRejectResponse;
 import com.example.noltok.friend.dto.response.FriendRequestResponse;
 import com.example.noltok.global.exception.BusinessException;
@@ -127,5 +129,27 @@ public class FriendService {
                 .toList();
 
         return FriendListResponse.of(friends);
+    }
+
+    @Transactional(readOnly = true)
+    public FriendReceivedListResponse getReceivedRequests(Long userId) {
+        // 1. status=PENDING, receiverId=userId인 요청 전부 조회
+        List<Friend> pending = friendRepository.findAllByReceiverIdAndStatus(userId, FriendStatus.PENDING);
+
+        // 2. 요청자 userId 목록 추출
+        List<Long> requesterIds = pending.stream()
+                .map(Friend::getRequesterId)
+                .toList();
+
+        // 3. 요청자 유저 정보 일괄 조회 (N+1 방지)
+        Map<Long, User> userMap = userRepository.findAllById(requesterIds).stream()
+                .collect(Collectors.toMap(User::getId, user -> user));
+
+        // 4. DTO 변환
+        List<ReceivedFriendRequestDto> requests = pending.stream()
+                .map(f -> ReceivedFriendRequestDto.of(f, userMap.get(f.getRequesterId())))
+                .toList();
+
+        return FriendReceivedListResponse.of(requests);
     }
 }

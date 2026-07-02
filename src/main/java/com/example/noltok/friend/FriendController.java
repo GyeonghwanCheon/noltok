@@ -3,6 +3,7 @@ package com.example.noltok.friend;
 import com.example.noltok.friend.dto.request.FriendRequestRequest;
 import com.example.noltok.friend.dto.response.FriendAcceptResponse;
 import com.example.noltok.friend.dto.response.FriendListResponse;
+import com.example.noltok.friend.dto.response.FriendReceivedListResponse;
 import com.example.noltok.friend.dto.response.FriendRejectResponse;
 import com.example.noltok.friend.dto.response.FriendRequestResponse;
 import com.example.noltok.global.response.ApiResponse;
@@ -65,6 +66,15 @@ public class FriendController {
 
         Long userId = Long.parseLong(userDetails.getUsername());
         FriendListResponse response = friendService.getFriends(userId);
+        return ResponseEntity.ok(ApiResponse.ok(response));
+    }
+
+    @GetMapping("/received")
+    public ResponseEntity<ApiResponse<FriendReceivedListResponse>> getReceivedRequests(
+            @AuthenticationPrincipal UserDetails userDetails) {
+
+        Long userId = Long.parseLong(userDetails.getUsername());
+        FriendReceivedListResponse response = friendService.getReceivedRequests(userId);
         return ResponseEntity.ok(ApiResponse.ok(response));
     }
 }

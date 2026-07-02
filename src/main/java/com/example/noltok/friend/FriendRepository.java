@@ -21,4 +21,8 @@ public interface FriendRepository extends JpaRepository<Friend, Long> {
     @Query("SELECT f FROM Friend f WHERE f.status = 'ACCEPTED' " +
             "AND (f.requesterId = :userId OR f.receiverId = :userId)")
     List<Friend> findAllAcceptedByUserId(@Param("userId") Long userId);
+
+    // 받은 친구 요청 목록 조회용
+    // → 방향이 고정(receiverId)이라 OR 조건 없이 단순 쿼리로 충분
+    List<Friend> findAllByReceiverIdAndStatus(Long receiverId, FriendStatus status);
 }

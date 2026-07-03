@@ -2,6 +2,7 @@ package com.example.noltok.block;
 
 import com.example.noltok.block.dto.BlockDto;
 import com.example.noltok.block.dto.request.BlockRequest;
+import com.example.noltok.block.dto.response.BlockDeleteResponse;
 import com.example.noltok.block.dto.response.BlockListResponse;
 import com.example.noltok.block.dto.response.BlockResponse;
 import com.example.noltok.friend.FriendRepository;
@@ -84,5 +85,27 @@ public class BlockService {
                 .toList();
 
         return BlockListResponse.of(blocks);
+    }
+
+    @Transactional
+    public BlockDeleteResponse unblockUser(Long userId, Long blockId) {
+        // 1. blockId로 조회, 활성 차단만 대상
+        Block block = blockRepository.findById(blockId)
+                .filter(Block::isActive)
+                .orElseThrow(() -> new BusinessException(ErrorCode.BLOCK_NOT_FOUND));
+
+        // 2. 본인이 차단한 건만 해제 가능
+        if (!block.getBlockerId().equals(userId)) {
+            throw new BusinessException(ErrorCode.NOT_BLOCK_OWNER);
+        }
+
+        // 3. 응답 메시지에 넣을 상대방 닉네임 조회
+        User blockedUser = userRepository.findById(block.getBlockedId())
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+
+        // 4. Soft Delete (docs/decision-log.md 2026-07-02 결정)
+        block.deactivate();
+
+        return BlockDeleteResponse.of(blockId, blockedUser.getNickname());
     }
 }

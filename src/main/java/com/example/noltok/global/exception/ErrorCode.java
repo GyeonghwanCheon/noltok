@@ -44,6 +44,8 @@ public enum ErrorCode {
     // Block
     CANNOT_BLOCK_YOURSELF(HttpStatus.BAD_REQUEST, "본인을 차단할 수 없습니다."),
     ALREADY_BLOCKED(HttpStatus.CONFLICT, "이미 차단한 유저입니다."),
+    BLOCK_NOT_FOUND(HttpStatus.NOT_FOUND, "차단 내역을 찾을 수 없습니다."),
+    NOT_BLOCK_OWNER(HttpStatus.FORBIDDEN, "본인이 차단한 건이 아닙니다."),
 
     // Common
     INVALID_INPUT(HttpStatus.BAD_REQUEST, "잘못된 입력값입니다."),

@@ -39,4 +39,8 @@ public class Block extends BaseEntity {
     public void reactivate() {
         this.isActive = true;
     }
+
+    public void deactivate() {
+        this.isActive = false;
+    }
 }

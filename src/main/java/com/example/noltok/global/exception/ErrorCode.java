@@ -41,6 +41,10 @@ public enum ErrorCode {
     NOT_FRIEND_MEMBER(HttpStatus.FORBIDDEN, "친구 관계의 당사자가 아닙니다."),
     NOT_FRIEND_REQUEST_SENDER(HttpStatus.FORBIDDEN, "본인이 보낸 요청이 아닙니다."),
 
+    // Block
+    CANNOT_BLOCK_YOURSELF(HttpStatus.BAD_REQUEST, "본인을 차단할 수 없습니다."),
+    ALREADY_BLOCKED(HttpStatus.CONFLICT, "이미 차단한 유저입니다."),
+
     // Common
     INVALID_INPUT(HttpStatus.BAD_REQUEST, "잘못된 입력값입니다."),
     INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "서버 오류가 발생했습니다.");

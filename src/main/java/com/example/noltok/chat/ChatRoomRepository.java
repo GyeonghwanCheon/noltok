@@ -8,14 +8,13 @@ import java.util.List;
 
 public interface ChatRoomRepository extends JpaRepository<ChatRoom, Long> {
 
-    // 기존 searchByRoomname() 수정
-    // → GROUP 채팅방만 검색, DIRECT 제외
-    // → 이유: DIRECT 방은 이름이 없고 private한 성격
-    //         검색 결과에 노출되면 안 됨
+    // OPEN/OPEN_PRIVATE 채팅방만 검색 (DIRECT, GROUP 제외)
+    // → DIRECT는 이름이 없고 private한 성격
+    // → GROUP은 초대제로 바뀌어서 검색해도 못 들어감 (docs/decision-log.md 2026-07-03)
     @Query("""
         SELECT r FROM ChatRoom r
         WHERE r.roomname LIKE %:roomname%
-        AND r.type = 'GROUP'
+        AND r.type IN ('OPEN', 'OPEN_PRIVATE')
         AND r.isActive = true
     """)
     List<ChatRoom> searchByRoomname(@Param("roomname") String roomname);

@@ -229,20 +229,30 @@ public class ChatRoomService {
 
     // joinRoom() 메서드만 추가, 기존 코드 유지
     @Transactional
-    public ChatRoomJoinResponse joinRoom(Long userId, Long roomId) {
+    public ChatRoomJoinResponse joinRoom(Long userId, Long roomId, String password) {
 
         // 1. 채팅방 존재 확인
         ChatRoom chatRoom = chatRoomRepository.findById(roomId)
                 .filter(ChatRoom::isActive)
                 .orElseThrow(() -> new BusinessException(ErrorCode.CHATROOM_NOT_FOUND));
 
-        // 2. DIRECT 채팅방 입장 불가
-        // → DIRECT는 생성 시에만 멤버가 결정됨
-        if (chatRoom.getType() == ChatRoomType.DIRECT) {
-            throw new BusinessException(ErrorCode.CANNOT_INVITE_TO_DIRECT_ROOM);
+        // 2. DIRECT/GROUP은 이 API로 입장 불가 (초대로만 참여 가능)
+        // → docs/decision-log.md 2026-07-03 결정
+        if (chatRoom.getType() == ChatRoomType.DIRECT || chatRoom.getType() == ChatRoomType.GROUP) {
+            throw new BusinessException(ErrorCode.CANNOT_SELF_JOIN_ROOM);
         }
 
-        // 3. 기존 멤버십 조회 (isActive 관계없이)
+        // 3. OPEN_PRIVATE 비밀번호 검증
+        if (chatRoom.getType() == ChatRoomType.OPEN_PRIVATE) {
+            if (password == null || password.isBlank()) {
+                throw new BusinessException(ErrorCode.CHATROOM_PASSWORD_REQUIRED);
+            }
+            if (!chatRoom.matchesPassword(password, passwordEncoder)) {
+                throw new BusinessException(ErrorCode.INVALID_CHATROOM_PASSWORD);
+            }
+        }
+
+        // 4. 기존 멤버십 조회 (isActive 관계없이)
         Optional<ChatRoomMember> existingMember = chatRoomMemberRepository
                 .findByChatRoomIdAndUserId(roomId, userId);
 
@@ -262,7 +272,7 @@ public class ChatRoomService {
             chatRoomMemberRepository.save(newMember);
         }
 
-        // 4. userId로 nickname 조회 후 메시지 생성
+        // 5. userId로 nickname 조회 후 메시지 생성
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 

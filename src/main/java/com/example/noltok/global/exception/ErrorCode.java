@@ -34,6 +34,8 @@ public enum ErrorCode {
     CHATROOM_INVITE_NOT_FRIEND(HttpStatus.FORBIDDEN, "초대 대상과 친구가 아닙니다."),
     CHATROOM_INVITE_BLOCKED(HttpStatus.FORBIDDEN, "초대 대상과 차단 관계입니다."),
     CHATROOM_PASSWORD_REQUIRED(HttpStatus.BAD_REQUEST, "비밀번호가 필요합니다."),
+    CANNOT_SELF_JOIN_ROOM(HttpStatus.FORBIDDEN, "초대를 통해서만 입장할 수 있는 채팅방입니다."),
+    INVALID_CHATROOM_PASSWORD(HttpStatus.FORBIDDEN, "비밀번호가 일치하지 않습니다."),
 
     // Friend
     CANNOT_REQUEST_YOURSELF(HttpStatus.BAD_REQUEST, "본인에게 친구 요청을 보낼 수 없습니다."),

@@ -1,6 +1,7 @@
 package com.example.noltok.chat;
 
 import com.example.noltok.chat.dto.request.CreateRoomRequest;
+import com.example.noltok.chat.dto.request.JoinRoomRequest;
 import com.example.noltok.chat.dto.response.*;
 import com.example.noltok.global.response.ApiResponse;
 import jakarta.validation.Valid;
@@ -61,9 +62,11 @@ public class ChatRoomController {
     @PostMapping("/{roomId}/join")
     public ResponseEntity<ApiResponse<ChatRoomJoinResponse>> joinRoom(
             @AuthenticationPrincipal UserDetails userDetails,
-            @PathVariable Long roomId) {
+            @PathVariable Long roomId,
+            @RequestBody(required = false) JoinRoomRequest request) {
         Long userId = Long.parseLong(userDetails.getUsername());
-        ChatRoomJoinResponse response = chatRoomService.joinRoom(userId, roomId);
+        String password = request != null ? request.password() : null;
+        ChatRoomJoinResponse response = chatRoomService.joinRoom(userId, roomId, password);
         return ResponseEntity.ok(ApiResponse.ok(response));
     }
 }

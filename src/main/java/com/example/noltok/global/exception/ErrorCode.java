@@ -31,6 +31,9 @@ public enum ErrorCode {
     CANNOT_INVITE_TO_DIRECT_ROOM(HttpStatus.FORBIDDEN, "1:1 채팅방에는 멤버를 초대할 수 없습니다."),
     CANNOT_INVITE_YOURSELF(HttpStatus.BAD_REQUEST, "본인을 채팅방에 초대할 수 없습니다."),
     DUPLICATE_INVITE_NICKNAME(HttpStatus.BAD_REQUEST, "초대 목록에 중복된 닉네임이 있습니다."),
+    CHATROOM_INVITE_NOT_FRIEND(HttpStatus.FORBIDDEN, "초대 대상과 친구가 아닙니다."),
+    CHATROOM_INVITE_BLOCKED(HttpStatus.FORBIDDEN, "초대 대상과 차단 관계입니다."),
+    CHATROOM_PASSWORD_REQUIRED(HttpStatus.BAD_REQUEST, "비밀번호가 필요합니다."),
 
     // Friend
     CANNOT_REQUEST_YOURSELF(HttpStatus.BAD_REQUEST, "본인에게 친구 요청을 보낼 수 없습니다."),

@@ -1,15 +1,19 @@
 package com.example.noltok.chat;
 
+import com.example.noltok.block.BlockRepository;
 import com.example.noltok.chat.dto.MemberDto;
 import com.example.noltok.chat.dto.SearchRoomDto;
 import com.example.noltok.chat.dto.request.CreateRoomRequest;
 import com.example.noltok.chat.dto.response.*;
 import com.example.noltok.chat.dto.ChatRoomSummaryDto;
+import com.example.noltok.friend.FriendRepository;
+import com.example.noltok.friend.FriendStatus;
 import com.example.noltok.global.exception.BusinessException;
 import com.example.noltok.global.exception.ErrorCode;
 import com.example.noltok.user.User;
 import com.example.noltok.user.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,47 +28,55 @@ public class ChatRoomService {
     private final ChatRoomRepository chatRoomRepository;
     private final ChatRoomMemberRepository chatRoomMemberRepository;
     private final UserRepository userRepository;
+    private final FriendRepository friendRepository;
+    private final BlockRepository blockRepository;
+    private final PasswordEncoder passwordEncoder;
 
     @Transactional
     public ChatRoomResponse createRoom(Long userId, CreateRoomRequest request) {
+        List<String> nicknames = request.nicknames() != null ? request.nicknames() : List.of();
 
-        // DIRECT 검증
+        // 1. 타입별 필수값 검증 (roomname / nicknames / password)
+        validateRoomFields(request, nicknames);
+
+        // 2. DIRECT 전용 검증 (1명 제한 + 기존 방 중복 체크)
         if (request.type() == ChatRoomType.DIRECT) {
-            validateDirectRoom(userId, request.nicknames());
+            validateDirectRoom(userId, nicknames);
         }
 
-        // GROUP 이름 검증
-        if (request.type() == ChatRoomType.GROUP &&
-                (request.roomname() == null || request.roomname().isBlank())) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT);
-        }
-
-        // 초대할 유저 조회
+        // 3. DIRECT/GROUP만 초대 대상 조회 + 친구·차단 검증
+        // → OPEN/OPEN_PRIVATE는 nicknames 자체를 쓰지 않으므로 대상 없음
         List<User> invitedUsers = new ArrayList<>();
-        for (String nickname : request.nicknames()) {
-            User user = userRepository.findByNickname(nickname)
-                    .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        if (request.type() == ChatRoomType.DIRECT || request.type() == ChatRoomType.GROUP) {
+            for (String nickname : nicknames) {
+                User user = userRepository.findByNickname(nickname)
+                        .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
-            // 1. 본인 닉네임 포함 여부 체크
-            // → 생성자는 자동으로 ADMIN으로 등록되므로
-            //   nicknames에 본인이 포함되면 중복 INSERT 발생
-            if (user.getId().equals(userId)) {
-                throw new BusinessException(ErrorCode.CANNOT_INVITE_YOURSELF);
+                // 본인 닉네임 포함 여부 체크
+                if (user.getId().equals(userId)) {
+                    throw new BusinessException(ErrorCode.CANNOT_INVITE_YOURSELF);
+                }
+
+                // nicknames 중복 체크
+                boolean isDuplicate = invitedUsers.stream()
+                        .anyMatch(u -> u.getId().equals(user.getId()));
+                if (isDuplicate) {
+                    throw new BusinessException(ErrorCode.DUPLICATE_INVITE_NICKNAME);
+                }
+
+                validateFriendAndBlock(userId, user.getId());
+
+                invitedUsers.add(user);
             }
-
-            // 2. nicknames 중복 체크
-            // → 같은 닉네임이 두 번 들어오면 중복 INSERT 발생
-            boolean isDuplicate = invitedUsers.stream()
-                    .anyMatch(u -> u.getId().equals(user.getId()));
-            if (isDuplicate) {
-                throw new BusinessException(ErrorCode.DUPLICATE_INVITE_NICKNAME);
-            }
-
-            invitedUsers.add(user);
         }
 
-        // ChatRoom 생성
-        ChatRoom chatRoom = ChatRoom.create(request.roomname(), request.type(), userId);
+        // 4. OPEN_PRIVATE면 password 암호화
+        String encodedPassword = request.type() == ChatRoomType.OPEN_PRIVATE
+                ? passwordEncoder.encode(request.password())
+                : null;
+
+        // 5. ChatRoom 생성
+        ChatRoom chatRoom = ChatRoom.create(request.roomname(), request.type(), userId, encodedPassword);
         chatRoomRepository.save(chatRoom);
 
         // 생성자 ADMIN 저장
@@ -80,6 +92,41 @@ public class ChatRoomService {
 
         int memberCount = 1 + invitedUsers.size();
         return ChatRoomResponse.of(chatRoom, memberCount, ChatRoomRole.ADMIN);
+    }
+
+    // 타입별 필수값 검증
+    // → roomname: DIRECT만 제외하고 전부 필수
+    // → nicknames: GROUP만 1명 이상 필수 (DIRECT는 validateDirectRoom에서 별도 체크)
+    // → password: OPEN_PRIVATE만 필수
+    private void validateRoomFields(CreateRoomRequest request, List<String> nicknames) {
+        if (request.type() != ChatRoomType.DIRECT &&
+                (request.roomname() == null || request.roomname().isBlank())) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT);
+        }
+
+        if (request.type() == ChatRoomType.GROUP && nicknames.isEmpty()) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT);
+        }
+
+        if (request.type() == ChatRoomType.OPEN_PRIVATE &&
+                (request.password() == null || request.password().isBlank())) {
+            throw new BusinessException(ErrorCode.CHATROOM_PASSWORD_REQUIRED);
+        }
+    }
+
+    // 초대자(userId) 기준 친구/차단 검증
+    // → 친구 검증을 먼저 해서, 친구가 아니면 차단 조회(추가 쿼리) 자체를 생략
+    private void validateFriendAndBlock(Long userId, Long targetId) {
+        boolean isFriend = friendRepository.findRelationBetween(userId, targetId)
+                .map(friend -> friend.getStatus() == FriendStatus.ACCEPTED)
+                .orElse(false);
+        if (!isFriend) {
+            throw new BusinessException(ErrorCode.CHATROOM_INVITE_NOT_FRIEND);
+        }
+
+        if (blockRepository.existsActiveBlockBetween(userId, targetId)) {
+            throw new BusinessException(ErrorCode.CHATROOM_INVITE_BLOCKED);
+        }
     }
 
     // 내 채팅방 목록 조회

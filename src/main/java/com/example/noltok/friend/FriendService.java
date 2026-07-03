@@ -1,5 +1,6 @@
 package com.example.noltok.friend;
 
+import com.example.noltok.block.BlockRepository;
 import com.example.noltok.friend.dto.FriendDto;
 import com.example.noltok.friend.dto.ReceivedFriendRequestDto;
 import com.example.noltok.friend.dto.SentFriendRequestDto;
@@ -30,6 +31,7 @@ public class FriendService {
 
     private final FriendRepository friendRepository;
     private final UserRepository userRepository;
+    private final BlockRepository blockRepository;
 
     @Transactional
     public FriendRequestResponse sendRequest(Long userId, FriendRequestRequest request) {
@@ -42,7 +44,12 @@ public class FriendService {
             throw new BusinessException(ErrorCode.CANNOT_REQUEST_YOURSELF);
         }
 
-        // 3. 기존 관계 조회 → REJECTED면 재사용, 없으면 신규 생성
+        // 3. 차단 관계 체크 (ChatRoomService.createRoom()과 동일 패턴)
+        if (blockRepository.existsActiveBlockBetween(userId, target.getId())) {
+            throw new BusinessException(ErrorCode.FRIEND_REQUEST_BLOCKED);
+        }
+
+        // 4. 기존 관계 조회 → REJECTED면 재사용, 없으면 신규 생성
         Friend friend = friendRepository.findRelationBetween(userId, target.getId())
                 .map(existing -> reuseIfRejected(existing, userId, target.getId()))
                 .orElseGet(() -> friendRepository.save(Friend.create(userId, target.getId())));

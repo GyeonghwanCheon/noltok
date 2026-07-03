@@ -43,6 +43,7 @@ public enum ErrorCode {
     FRIEND_REQUEST_ALREADY_PROCESSED(HttpStatus.UNPROCESSABLE_ENTITY, "이미 처리된 요청입니다."),
     NOT_FRIEND_MEMBER(HttpStatus.FORBIDDEN, "친구 관계의 당사자가 아닙니다."),
     NOT_FRIEND_REQUEST_SENDER(HttpStatus.FORBIDDEN, "본인이 보낸 요청이 아닙니다."),
+    FRIEND_REQUEST_BLOCKED(HttpStatus.FORBIDDEN, "차단 관계에서는 친구 요청을 보낼 수 없습니다."),
 
     // Block
     CANNOT_BLOCK_YOURSELF(HttpStatus.BAD_REQUEST, "본인을 차단할 수 없습니다."),

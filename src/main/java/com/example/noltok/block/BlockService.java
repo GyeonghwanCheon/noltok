@@ -1,6 +1,8 @@
 package com.example.noltok.block;
 
+import com.example.noltok.block.dto.BlockDto;
 import com.example.noltok.block.dto.request.BlockRequest;
+import com.example.noltok.block.dto.response.BlockListResponse;
 import com.example.noltok.block.dto.response.BlockResponse;
 import com.example.noltok.friend.FriendRepository;
 import com.example.noltok.friend.FriendStatus;
@@ -11,6 +13,10 @@ import com.example.noltok.user.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -56,5 +62,27 @@ public class BlockService {
         friendRepository.findRelationBetween(userId, targetId)
                 .filter(friend -> friend.getStatus() != FriendStatus.REJECTED)
                 .ifPresent(friendRepository::delete);
+    }
+
+    @Transactional(readOnly = true)
+    public BlockListResponse getBlocks(Long userId) {
+        // 1. 활성 차단 목록 조회
+        List<Block> activeBlocks = blockRepository.findAllByBlockerIdAndIsActiveTrue(userId);
+
+        // 2. 차단 대상 userId 추출
+        List<Long> blockedIds = activeBlocks.stream()
+                .map(Block::getBlockedId)
+                .toList();
+
+        // 3. 대상 유저 정보 일괄 조회 (N+1 방지)
+        Map<Long, User> userMap = userRepository.findAllById(blockedIds).stream()
+                .collect(Collectors.toMap(User::getId, user -> user));
+
+        // 4. DTO 변환
+        List<BlockDto> blocks = activeBlocks.stream()
+                .map(block -> BlockDto.of(block, userMap.get(block.getBlockedId())))
+                .toList();
+
+        return BlockListResponse.of(blocks);
     }
 }

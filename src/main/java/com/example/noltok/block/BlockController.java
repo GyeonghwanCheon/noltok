@@ -1,6 +1,7 @@
 package com.example.noltok.block;
 
 import com.example.noltok.block.dto.request.BlockRequest;
+import com.example.noltok.block.dto.response.BlockListResponse;
 import com.example.noltok.block.dto.response.BlockResponse;
 import com.example.noltok.global.response.ApiResponse;
 import jakarta.validation.Valid;
@@ -9,6 +10,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -31,5 +33,14 @@ public class BlockController {
         return ResponseEntity
                 .status(HttpStatus.CREATED)
                 .body(ApiResponse.ok(response));
+    }
+
+    @GetMapping
+    public ResponseEntity<ApiResponse<BlockListResponse>> getBlocks(
+            @AuthenticationPrincipal UserDetails userDetails) {
+
+        Long userId = Long.parseLong(userDetails.getUsername());
+        BlockListResponse response = blockService.getBlocks(userId);
+        return ResponseEntity.ok(ApiResponse.ok(response));
     }
 }

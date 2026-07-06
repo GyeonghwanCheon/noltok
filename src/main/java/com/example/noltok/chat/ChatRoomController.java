@@ -1,5 +1,6 @@
 package com.example.noltok.chat;
 
+import com.example.noltok.chat.dto.request.ChangeAdminRequest;
 import com.example.noltok.chat.dto.request.CreateRoomRequest;
 import com.example.noltok.chat.dto.request.InviteMembersRequest;
 import com.example.noltok.chat.dto.request.JoinRoomRequest;
@@ -88,6 +89,16 @@ public class ChatRoomController {
             @PathVariable Long targetUserId) {
         Long adminUserId = Long.parseLong(userDetails.getUsername());
         ChatRoomKickResponse response = chatRoomService.kickMember(adminUserId, roomId, targetUserId);
+        return ResponseEntity.ok(ApiResponse.ok(response));
+    }
+
+    @PatchMapping("/{roomId}/admin")
+    public ResponseEntity<ApiResponse<ChatRoomAdminResponse>> changeAdmin(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable Long roomId,
+            @Valid @RequestBody ChangeAdminRequest request) {
+        Long currentAdminUserId = Long.parseLong(userDetails.getUsername());
+        ChatRoomAdminResponse response = chatRoomService.changeAdmin(currentAdminUserId, roomId, request);
         return ResponseEntity.ok(ApiResponse.ok(response));
     }
 }

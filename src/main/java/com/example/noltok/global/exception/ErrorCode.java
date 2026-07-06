@@ -39,6 +39,8 @@ public enum ErrorCode {
     CANNOT_INVITE_TO_OPEN_ROOM(HttpStatus.FORBIDDEN, "자유입장 채팅방에는 멤버를 초대할 수 없습니다."),
     CANNOT_KICK_MEMBER(HttpStatus.FORBIDDEN, "이 채팅방 타입에서는 멤버를 추방할 수 없습니다."),
     CANNOT_KICK_YOURSELF(HttpStatus.BAD_REQUEST, "본인을 추방할 수 없습니다."),
+    CANNOT_CHANGE_ADMIN(HttpStatus.FORBIDDEN, "1:1 채팅방은 관리자 개념이 없습니다."),
+    ALREADY_CHATROOM_ADMIN(HttpStatus.UNPROCESSABLE_ENTITY, "이미 관리자인 유저입니다."),
 
     // Friend
     CANNOT_REQUEST_YOURSELF(HttpStatus.BAD_REQUEST, "본인에게 친구 요청을 보낼 수 없습니다."),

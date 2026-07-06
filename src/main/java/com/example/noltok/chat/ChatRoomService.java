@@ -3,6 +3,7 @@ package com.example.noltok.chat;
 import com.example.noltok.block.BlockRepository;
 import com.example.noltok.chat.dto.MemberDto;
 import com.example.noltok.chat.dto.SearchRoomDto;
+import com.example.noltok.chat.dto.request.ChangeAdminRequest;
 import com.example.noltok.chat.dto.request.CreateRoomRequest;
 import com.example.noltok.chat.dto.request.InviteMembersRequest;
 import com.example.noltok.chat.dto.response.*;
@@ -391,6 +392,52 @@ public class ChatRoomService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
         return ChatRoomKickResponse.of(roomId, targetUserId, targetUser.getNickname());
+    }
+
+    // changeAdmin() 메서드만 추가, 기존 코드 유지
+    @Transactional
+    public ChatRoomAdminResponse changeAdmin(Long currentAdminUserId, Long roomId, ChangeAdminRequest request) {
+
+        // 1. 채팅방 존재 확인
+        ChatRoom chatRoom = chatRoomRepository.findById(roomId)
+                .filter(ChatRoom::isActive)
+                .orElseThrow(() -> new BusinessException(ErrorCode.CHATROOM_NOT_FOUND));
+
+        // 2. DIRECT는 관리자 개념 없음
+        if (chatRoom.getType() == ChatRoomType.DIRECT) {
+            throw new BusinessException(ErrorCode.CANNOT_CHANGE_ADMIN);
+        }
+
+        // 3. 요청자가 ADMIN인지 확인
+        ChatRoomMember currentAdmin = chatRoomMemberRepository
+                .findByChatRoomIdAndUserIdAndIsActiveTrue(roomId, currentAdminUserId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_CHATROOM_MEMBER));
+        if (currentAdmin.getRole() != ChatRoomRole.ADMIN) {
+            throw new BusinessException(ErrorCode.NOT_CHATROOM_ADMIN);
+        }
+
+        // 4. 신규 관리자 대상이 활성 멤버인지 확인
+        ChatRoomMember newAdmin = chatRoomMemberRepository
+                .findByChatRoomIdAndUserIdAndIsActiveTrue(roomId, request.newAdminUserId())
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_CHATROOM_MEMBER));
+
+        // 5. 신규 관리자가 이미 ADMIN인지 확인 (본인 지정 포함)
+        if (newAdmin.getRole() == ChatRoomRole.ADMIN) {
+            throw new BusinessException(ErrorCode.ALREADY_CHATROOM_ADMIN);
+        }
+
+        // 6. 기존 ADMIN 강등, 신규 대상 승격
+        currentAdmin.demoteToMember();
+        newAdmin.promoteToAdmin();
+
+        // 7. 응답 메시지에 넣을 닉네임 조회
+        User previousAdminUser = userRepository.findById(currentAdminUserId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        User newAdminUser = userRepository.findById(request.newAdminUserId())
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+
+        return ChatRoomAdminResponse.of(roomId, currentAdminUserId, request.newAdminUserId(),
+                previousAdminUser.getNickname(), newAdminUser.getNickname());
     }
 
 }

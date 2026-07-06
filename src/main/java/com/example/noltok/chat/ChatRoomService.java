@@ -485,4 +485,36 @@ public class ChatRoomService {
         return ChatRoomLeaveResponse.of(roomId, chatRoom.getRoomname());
     }
 
+    // deleteRoom() 메서드만 추가, 기존 코드 유지
+    @Transactional
+    public ChatRoomDeleteResponse deleteRoom(Long userId, Long roomId) {
+
+        // 1. 채팅방 존재 확인
+        ChatRoom chatRoom = chatRoomRepository.findById(roomId)
+                .filter(ChatRoom::isActive)
+                .orElseThrow(() -> new BusinessException(ErrorCode.CHATROOM_NOT_FOUND));
+
+        // 2. DIRECT는 삭제 불가
+        if (chatRoom.getType() == ChatRoomType.DIRECT) {
+            throw new BusinessException(ErrorCode.CANNOT_DELETE_DIRECT_ROOM);
+        }
+
+        // 3. 요청자가 ADMIN인지 확인
+        ChatRoomMember member = chatRoomMemberRepository
+                .findByChatRoomIdAndUserIdAndIsActiveTrue(roomId, userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_CHATROOM_MEMBER));
+        if (member.getRole() != ChatRoomRole.ADMIN) {
+            throw new BusinessException(ErrorCode.NOT_CHATROOM_ADMIN);
+        }
+
+        // 4. 채팅방 비활성화
+        chatRoom.deactivate();
+
+        // 5. 전체 활성 멤버 일괄 강제 퇴장 (벌크 UPDATE)
+        chatRoomMemberRepository.deactivateAllByChatRoomId(roomId);
+
+        // 6. 응답 메시지 생성
+        return ChatRoomDeleteResponse.of(roomId, chatRoom.getRoomname());
+    }
+
 }

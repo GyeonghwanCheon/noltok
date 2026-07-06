@@ -110,4 +110,13 @@ public class ChatRoomController {
         ChatRoomLeaveResponse response = chatRoomService.leaveRoom(userId, roomId);
         return ResponseEntity.ok(ApiResponse.ok(response));
     }
+
+    @DeleteMapping("/{roomId}")
+    public ResponseEntity<ApiResponse<ChatRoomDeleteResponse>> deleteRoom(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable Long roomId) {
+        Long userId = Long.parseLong(userDetails.getUsername());
+        ChatRoomDeleteResponse response = chatRoomService.deleteRoom(userId, roomId);
+        return ResponseEntity.ok(ApiResponse.ok(response));
+    }
 }

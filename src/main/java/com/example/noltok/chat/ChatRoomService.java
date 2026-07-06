@@ -440,4 +440,49 @@ public class ChatRoomService {
                 previousAdminUser.getNickname(), newAdminUser.getNickname());
     }
 
+    // leaveRoom() 메서드만 추가, 기존 코드 유지
+    @Transactional
+    public ChatRoomLeaveResponse leaveRoom(Long userId, Long roomId) {
+
+        // 1. 채팅방 존재 확인
+        ChatRoom chatRoom = chatRoomRepository.findById(roomId)
+                .filter(ChatRoom::isActive)
+                .orElseThrow(() -> new BusinessException(ErrorCode.CHATROOM_NOT_FOUND));
+
+        // 2. 요청자가 활성 멤버인지 확인
+        ChatRoomMember member = chatRoomMemberRepository
+                .findByChatRoomIdAndUserIdAndIsActiveTrue(roomId, userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_CHATROOM_MEMBER));
+
+        // 3. DIRECT는 제약 없이 바로 나가기 처리
+        if (chatRoom.getType() == ChatRoomType.DIRECT) {
+            member.deactivate();
+
+            ChatRoomMember other = chatRoomMemberRepository.findByChatRoomIdAndIsActiveTrue(roomId).stream()
+                    .filter(m -> !m.getUserId().equals(userId))
+                    .findFirst()
+                    .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+            User otherUser = userRepository.findById(other.getUserId())
+                    .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+
+            return ChatRoomLeaveResponse.ofDirect(roomId, otherUser.getNickname());
+        }
+
+        // 4. GROUP/OPEN/OPEN_PRIVATE이고 ADMIN이면 위임 필요 여부 확인
+        if (member.getRole() == ChatRoomRole.ADMIN) {
+            int activeCount = chatRoomMemberRepository.countByChatRoomIdAndIsActiveTrue(roomId);
+            if (activeCount > 1) {
+                throw new BusinessException(ErrorCode.CHATROOM_ADMIN_MUST_DELEGATE);
+            }
+            // 본인 혼자 남은 경우 → 방까지 함께 비활성화
+            member.deactivate();
+            chatRoom.deactivate();
+            return ChatRoomLeaveResponse.of(roomId, chatRoom.getRoomname());
+        }
+
+        // 5. MEMBER는 제약 없이 나가기 처리
+        member.deactivate();
+        return ChatRoomLeaveResponse.of(roomId, chatRoom.getRoomname());
+    }
+
 }

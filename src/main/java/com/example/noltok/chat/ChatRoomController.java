@@ -101,4 +101,13 @@ public class ChatRoomController {
         ChatRoomAdminResponse response = chatRoomService.changeAdmin(currentAdminUserId, roomId, request);
         return ResponseEntity.ok(ApiResponse.ok(response));
     }
+
+    @DeleteMapping("/{roomId}/leave")
+    public ResponseEntity<ApiResponse<ChatRoomLeaveResponse>> leaveRoom(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable Long roomId) {
+        Long userId = Long.parseLong(userDetails.getUsername());
+        ChatRoomLeaveResponse response = chatRoomService.leaveRoom(userId, roomId);
+        return ResponseEntity.ok(ApiResponse.ok(response));
+    }
 }

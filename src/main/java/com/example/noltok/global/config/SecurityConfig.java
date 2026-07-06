@@ -41,7 +41,10 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/api/v1/auth/signup",
                                 "/api/v1/auth/login",
-                                "/api/v1/auth/reissue"
+                                "/api/v1/auth/reissue",
+                                "/ws/**"
+                                // /ws/**: STOMP CONNECT 프레임에서 별도로 JWT를 검증하므로
+                                //         HTTP 핸드셰이크 단계에서는 인증을 요구하지 않음
                         ).permitAll()
                         .anyRequest().authenticated()
                 )

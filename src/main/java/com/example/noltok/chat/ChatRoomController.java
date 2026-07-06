@@ -80,4 +80,14 @@ public class ChatRoomController {
         ChatRoomInviteResponse response = chatRoomService.inviteMembers(userId, roomId, request);
         return ResponseEntity.ok(ApiResponse.ok(response));
     }
+
+    @DeleteMapping("/{roomId}/members/{targetUserId}")
+    public ResponseEntity<ApiResponse<ChatRoomKickResponse>> kickMember(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable Long roomId,
+            @PathVariable Long targetUserId) {
+        Long adminUserId = Long.parseLong(userDetails.getUsername());
+        ChatRoomKickResponse response = chatRoomService.kickMember(adminUserId, roomId, targetUserId);
+        return ResponseEntity.ok(ApiResponse.ok(response));
+    }
 }

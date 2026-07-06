@@ -37,6 +37,8 @@ public enum ErrorCode {
     CANNOT_SELF_JOIN_ROOM(HttpStatus.FORBIDDEN, "초대를 통해서만 입장할 수 있는 채팅방입니다."),
     INVALID_CHATROOM_PASSWORD(HttpStatus.FORBIDDEN, "비밀번호가 일치하지 않습니다."),
     CANNOT_INVITE_TO_OPEN_ROOM(HttpStatus.FORBIDDEN, "자유입장 채팅방에는 멤버를 초대할 수 없습니다."),
+    CANNOT_KICK_MEMBER(HttpStatus.FORBIDDEN, "이 채팅방 타입에서는 멤버를 추방할 수 없습니다."),
+    CANNOT_KICK_YOURSELF(HttpStatus.BAD_REQUEST, "본인을 추방할 수 없습니다."),
 
     // Friend
     CANNOT_REQUEST_YOURSELF(HttpStatus.BAD_REQUEST, "본인에게 친구 요청을 보낼 수 없습니다."),

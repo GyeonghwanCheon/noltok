@@ -351,4 +351,46 @@ public class ChatRoomService {
         return ChatRoomInviteResponse.of(roomId, invitedMemberDtos, request.nicknames());
     }
 
+    // kickMember() 메서드만 추가, 기존 코드 유지
+    @Transactional
+    public ChatRoomKickResponse kickMember(Long adminUserId, Long roomId, Long targetUserId) {
+
+        // 1. 채팅방 존재 확인
+        ChatRoom chatRoom = chatRoomRepository.findById(roomId)
+                .filter(ChatRoom::isActive)
+                .orElseThrow(() -> new BusinessException(ErrorCode.CHATROOM_NOT_FOUND));
+
+        // 2. OPEN/OPEN_PRIVATE만 추방 가능
+        if (chatRoom.getType() == ChatRoomType.DIRECT || chatRoom.getType() == ChatRoomType.GROUP) {
+            throw new BusinessException(ErrorCode.CANNOT_KICK_MEMBER);
+        }
+
+        // 3. 요청자가 ADMIN인지 확인
+        ChatRoomMember adminMember = chatRoomMemberRepository
+                .findByChatRoomIdAndUserIdAndIsActiveTrue(roomId, adminUserId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_CHATROOM_MEMBER));
+        if (adminMember.getRole() != ChatRoomRole.ADMIN) {
+            throw new BusinessException(ErrorCode.NOT_CHATROOM_ADMIN);
+        }
+
+        // 4. 자기 자신을 추방 대상으로 지정했는지 확인
+        if (adminUserId.equals(targetUserId)) {
+            throw new BusinessException(ErrorCode.CANNOT_KICK_YOURSELF);
+        }
+
+        // 5. 대상 유저가 활성 멤버인지 확인
+        ChatRoomMember targetMember = chatRoomMemberRepository
+                .findByChatRoomIdAndUserIdAndIsActiveTrue(roomId, targetUserId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_CHATROOM_MEMBER));
+
+        // 6. 대상 멤버 비활성화
+        targetMember.deactivate();
+
+        // 7. 응답 메시지에 넣을 대상 닉네임 조회
+        User targetUser = userRepository.findById(targetUserId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+
+        return ChatRoomKickResponse.of(roomId, targetUserId, targetUser.getNickname());
+    }
+
 }

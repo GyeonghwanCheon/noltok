@@ -4,6 +4,7 @@ import com.example.noltok.block.BlockRepository;
 import com.example.noltok.chat.dto.MemberDto;
 import com.example.noltok.chat.dto.SearchRoomDto;
 import com.example.noltok.chat.dto.request.CreateRoomRequest;
+import com.example.noltok.chat.dto.request.InviteMembersRequest;
 import com.example.noltok.chat.dto.response.*;
 import com.example.noltok.chat.dto.ChatRoomSummaryDto;
 import com.example.noltok.friend.FriendRepository;
@@ -277,6 +278,77 @@ public class ChatRoomService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
         return ChatRoomJoinResponse.of(roomId, ChatRoomRole.MEMBER.name(), user.getNickname());
+    }
+
+    // inviteMembers() 메서드만 추가, 기존 코드 유지
+    @Transactional
+    public ChatRoomInviteResponse inviteMembers(Long userId, Long roomId, InviteMembersRequest request) {
+
+        // 1. 채팅방 존재 확인
+        ChatRoom chatRoom = chatRoomRepository.findById(roomId)
+                .filter(ChatRoom::isActive)
+                .orElseThrow(() -> new BusinessException(ErrorCode.CHATROOM_NOT_FOUND));
+
+        // 2. GROUP만 초대 가능
+        if (chatRoom.getType() == ChatRoomType.DIRECT) {
+            throw new BusinessException(ErrorCode.CANNOT_INVITE_TO_DIRECT_ROOM);
+        }
+        if (chatRoom.getType() == ChatRoomType.OPEN || chatRoom.getType() == ChatRoomType.OPEN_PRIVATE) {
+            throw new BusinessException(ErrorCode.CANNOT_INVITE_TO_OPEN_ROOM);
+        }
+
+        // 3. 요청자가 활성 멤버인지 확인
+        chatRoomMemberRepository.findByChatRoomIdAndUserIdAndIsActiveTrue(roomId, userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_CHATROOM_MEMBER));
+
+        // 4. nicknames 순회하며 유저별 검증 (본인 포함/중복/이미 멤버/친구·차단)
+        List<User> invitedUsers = new ArrayList<>();
+        for (String nickname : request.nicknames()) {
+            User targetUser = userRepository.findByNickname(nickname)
+                    .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+
+            if (targetUser.getId().equals(userId)) {
+                throw new BusinessException(ErrorCode.CANNOT_INVITE_YOURSELF);
+            }
+
+            boolean isDuplicate = invitedUsers.stream()
+                    .anyMatch(u -> u.getId().equals(targetUser.getId()));
+            if (isDuplicate) {
+                throw new BusinessException(ErrorCode.DUPLICATE_INVITE_NICKNAME);
+            }
+
+            boolean alreadyMember = chatRoomMemberRepository
+                    .findByChatRoomIdAndUserIdAndIsActiveTrue(roomId, targetUser.getId())
+                    .isPresent();
+            if (alreadyMember) {
+                throw new BusinessException(ErrorCode.ALREADY_CHATROOM_MEMBER);
+            }
+
+            validateFriendAndBlock(userId, targetUser.getId());
+
+            invitedUsers.add(targetUser);
+        }
+
+        // 5. 대상 유저별 멤버십 처리 (비활성 멤버십 있으면 재입장, 없으면 신규 생성)
+        // → 재조회 없이 6번에서 그대로 쓸 수 있게 결과를 바로 담아둠
+        List<MemberDto> invitedMemberDtos = new ArrayList<>();
+        for (User invitedUser : invitedUsers) {
+            Optional<ChatRoomMember> existingMember = chatRoomMemberRepository
+                    .findByChatRoomIdAndUserId(roomId, invitedUser.getId());
+
+            ChatRoomMember member;
+            if (existingMember.isPresent()) {
+                member = existingMember.get();
+                member.reactivate();
+            } else {
+                member = ChatRoomMember.create(chatRoom, invitedUser.getId(), ChatRoomRole.MEMBER);
+                chatRoomMemberRepository.save(member);
+            }
+            invitedMemberDtos.add(MemberDto.of(member, invitedUser));
+        }
+
+        // 6. 응답 메시지 생성
+        return ChatRoomInviteResponse.of(roomId, invitedMemberDtos, request.nicknames());
     }
 
 }

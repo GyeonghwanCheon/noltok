@@ -66,6 +66,12 @@ public class StompAuthInterceptor implements ChannelInterceptor {
     // destination에서 roomId를 파싱해서 활성 멤버인지 확인
     private void authorizeSubscription(StompHeaderAccessor accessor) {
         String destination = accessor.getDestination();
+
+        // /user/** 는 세션 소유자에게만 전달되는 개인 큐라 방 멤버십 검증 대상이 아님
+        if (destination != null && destination.startsWith("/user/")) {
+            return;
+        }
+
         Matcher matcher = destination != null ? ROOM_TOPIC_PATTERN.matcher(destination) : null;
 
         if (matcher == null || !matcher.matches()) {

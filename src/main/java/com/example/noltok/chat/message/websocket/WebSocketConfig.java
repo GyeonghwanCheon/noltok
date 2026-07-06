@@ -25,10 +25,11 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     }
 
     // /topic: 서버 → 클라이언트 브로드캐스트 (구독)
+    // /queue: 서버 → 특정 유저 개인 큐 (/user/**가 내부적으로 /queue/**로 변환됨)
     // /app: 클라이언트 → 서버 전송 (@MessageMapping으로 라우팅)
     @Override
     public void configureMessageBroker(MessageBrokerRegistry registry) {
-        registry.enableSimpleBroker("/topic");
+        registry.enableSimpleBroker("/topic", "/queue");
         registry.setApplicationDestinationPrefixes("/app");
     }
 

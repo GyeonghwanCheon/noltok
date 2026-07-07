@@ -60,6 +60,10 @@ public enum ErrorCode {
     BLOCK_NOT_FOUND(HttpStatus.NOT_FOUND, "차단 내역을 찾을 수 없습니다."),
     NOT_BLOCK_OWNER(HttpStatus.FORBIDDEN, "본인이 차단한 건이 아닙니다."),
 
+    // File
+    EMPTY_FILE(HttpStatus.BAD_REQUEST, "파일이 비어있습니다."),
+    INVALID_FILE_EXTENSION(HttpStatus.BAD_REQUEST, "허용되지 않는 파일 형식입니다."),
+
     // Common
     INVALID_INPUT(HttpStatus.BAD_REQUEST, "잘못된 입력값입니다."),
     INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "서버 오류가 발생했습니다.");

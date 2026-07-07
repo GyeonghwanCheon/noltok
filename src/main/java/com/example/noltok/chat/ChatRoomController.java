@@ -119,4 +119,13 @@ public class ChatRoomController {
         ChatRoomDeleteResponse response = chatRoomService.deleteRoom(userId, roomId);
         return ResponseEntity.ok(ApiResponse.ok(response));
     }
+
+    @PatchMapping("/{roomId}/read")
+    public ResponseEntity<ApiResponse<ChatRoomReadResponse>> markAsRead(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable Long roomId) {
+        Long userId = Long.parseLong(userDetails.getUsername());
+        ChatRoomReadResponse response = chatRoomService.markAsRead(userId, roomId);
+        return ResponseEntity.ok(ApiResponse.ok(response));
+    }
 }

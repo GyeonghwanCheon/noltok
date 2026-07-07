@@ -8,6 +8,8 @@ import com.example.noltok.chat.dto.request.CreateRoomRequest;
 import com.example.noltok.chat.dto.request.InviteMembersRequest;
 import com.example.noltok.chat.dto.response.*;
 import com.example.noltok.chat.dto.ChatRoomSummaryDto;
+import com.example.noltok.chat.message.ChatMessage;
+import com.example.noltok.chat.message.ChatMessageRepository;
 import com.example.noltok.friend.FriendRepository;
 import com.example.noltok.friend.FriendStatus;
 import com.example.noltok.global.exception.BusinessException;
@@ -21,7 +23,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -29,6 +33,7 @@ public class ChatRoomService {
 
     private final ChatRoomRepository chatRoomRepository;
     private final ChatRoomMemberRepository chatRoomMemberRepository;
+    private final ChatMessageRepository chatMessageRepository;
     private final UserRepository userRepository;
     private final FriendRepository friendRepository;
     private final BlockRepository blockRepository;
@@ -140,14 +145,46 @@ public class ChatRoomService {
         List<ChatRoomMember> myMemberships = chatRoomMemberRepository
                 .findActiveRoomsByUserId(userId);
 
-        // 2. 각 멤버십에서 채팅방 정보 + 내 역할 추출
+        // 2. 안읽은 메시지 수를 배치 쿼리 1번으로 전체 조회 (N+1 방지)
+        Map<Long, Integer> unreadCountMap = chatRoomMemberRepository.countUnreadMessagesByUserId(userId).stream()
+                .collect(Collectors.toMap(UnreadCountProjection::getRoomId, p -> p.getUnreadCount().intValue()));
+
+        // 3. 각 멤버십에서 채팅방 정보 + 내 역할 + 안읽은 수 추출
         // → updatedAt 기준 내림차순 정렬 (최근 활동 순)
         List<ChatRoomSummaryDto> rooms = myMemberships.stream()
-                .map(member -> ChatRoomSummaryDto.of(member.getChatRoom(), member))
+                .map(member -> ChatRoomSummaryDto.of(
+                        member.getChatRoom(), member,
+                        unreadCountMap.getOrDefault(member.getChatRoom().getId(), 0)))
                 .sorted((a, b) -> b.updatedAt().compareTo(a.updatedAt()))
                 .toList();
 
         return ChatRoomListResponse.of(rooms);
+    }
+
+    // markAsRead() 메서드만 추가, 기존 코드 유지
+    @Transactional
+    public ChatRoomReadResponse markAsRead(Long userId, Long roomId) {
+
+        // 1. 채팅방 존재 확인
+        chatRoomRepository.findById(roomId)
+                .filter(ChatRoom::isActive)
+                .orElseThrow(() -> new BusinessException(ErrorCode.CHATROOM_NOT_FOUND));
+
+        // 2. 요청자가 활성 멤버인지 확인
+        ChatRoomMember member = chatRoomMemberRepository
+                .findByChatRoomIdAndUserIdAndIsActiveTrue(roomId, userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_CHATROOM_MEMBER));
+
+        // 3. 방의 최신 메시지 조회 (없으면 읽음 처리 스킵)
+        Optional<ChatMessage> latestMessage = chatMessageRepository.findTopByRoomIdOrderByIdDesc(roomId);
+        if (latestMessage.isEmpty()) {
+            return ChatRoomReadResponse.of(roomId, member.getLastReadMessageId());
+        }
+
+        // 4. 최신 메시지 id까지 읽음 처리
+        member.markAsRead(latestMessage.get().getId());
+
+        return ChatRoomReadResponse.of(roomId, member.getLastReadMessageId());
     }
 
 

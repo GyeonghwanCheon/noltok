@@ -14,14 +14,14 @@ public record ChatRoomSummaryDto(
         int unreadCount,
         LocalDate updatedAt
 ) {
-    public static ChatRoomSummaryDto of(ChatRoom room, ChatRoomMember member) {
+    public static ChatRoomSummaryDto of(ChatRoom room, ChatRoomMember member, int unreadCount) {
         return new ChatRoomSummaryDto(
                 room.getId(),
                 room.getRoomname(),
                 room.getType().name(),
                 member.getRole().name(),
                 null,
-                0,
+                unreadCount,
                 room.getUpdatedAt().toLocalDate()
         );
     }

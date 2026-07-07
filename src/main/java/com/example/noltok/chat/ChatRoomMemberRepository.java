@@ -39,4 +39,18 @@ public interface ChatRoomMemberRepository extends JpaRepository<ChatRoomMember, 
     @Modifying
     @Query("UPDATE ChatRoomMember m SET m.isActive = false WHERE m.chatRoom.id = :roomId AND m.isActive = true")
     void deactivateAllByChatRoomId(@Param("roomId") Long roomId);
+
+    // 내 활성 채팅방 전체의 안읽은 메시지 수를 배치로 조회 (N+1 방지)
+    // → chat_room_members와 chat_messages를 조인해서 방마다 반복 쿼리하지 않고 한 번에 계산
+    @Query("""
+        SELECT m.chatRoom.id AS roomId, COUNT(cm.id) AS unreadCount
+        FROM ChatRoomMember m, ChatMessage cm
+        WHERE m.userId = :userId
+        AND m.isActive = true
+        AND m.chatRoom.isActive = true
+        AND cm.roomId = m.chatRoom.id
+        AND cm.id > COALESCE(m.lastReadMessageId, 0)
+        GROUP BY m.chatRoom.id
+    """)
+    List<UnreadCountProjection> countUnreadMessagesByUserId(@Param("userId") Long userId);
 }

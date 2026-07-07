@@ -89,5 +89,9 @@ public class ChatRoomMember {
         this.joinedAt = LocalDateTime.now();
     }
 
+    // 읽음 처리: 방의 최신 메시지 id까지 읽은 것으로 갱신
+    public void markAsRead(Long messageId) {
+        this.lastReadMessageId = messageId;
+    }
 
 }

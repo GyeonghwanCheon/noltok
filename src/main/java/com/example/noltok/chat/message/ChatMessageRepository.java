@@ -4,6 +4,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.util.Optional;
+
 public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> {
 
     // 최신 메시지부터 조회 (첫 페이지)
@@ -11,4 +13,7 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> 
 
     // cursor(마지막으로 받은 메시지 id)보다 오래된 메시지 조회 (이전 메시지 불러오기)
     Slice<ChatMessage> findByRoomIdAndIdLessThanOrderByIdDesc(Long roomId, Long cursor, Pageable pageable);
+
+    // 읽음 처리용: 방의 최신 메시지 1건 조회
+    Optional<ChatMessage> findTopByRoomIdOrderByIdDesc(Long roomId);
 }

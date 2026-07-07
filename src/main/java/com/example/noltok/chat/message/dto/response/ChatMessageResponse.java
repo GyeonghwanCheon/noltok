@@ -11,6 +11,7 @@ public record ChatMessageResponse(
         String senderNickname,
         String content,
         String type,
+        String fileUrl,
         LocalDateTime createdAt
 ) {
     public static ChatMessageResponse of(ChatMessage message, String senderNickname) {
@@ -21,6 +22,7 @@ public record ChatMessageResponse(
                 senderNickname,
                 message.getContent(),
                 message.getType().name(),
+                message.getFileUrl(),
                 message.getCreatedAt()
         );
     }

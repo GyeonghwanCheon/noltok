@@ -1,10 +1,18 @@
 package com.example.noltok.chat.message.dto.request;
 
-import jakarta.validation.constraints.NotBlank;
+import com.example.noltok.chat.message.ChatMessageType;
+import jakarta.validation.constraints.NotNull;
 
 public record SendMessageRequest(
 
-        @NotBlank(message = "메시지 내용은 필수입니다.")
-        String content
+        @NotNull(message = "메시지 타입은 필수입니다.")
+        ChatMessageType type,
+
+        // TEXT는 필수, FILE은 원본 파일명 용도(선택), IMAGE는 사용 안 함
+        // → 타입별 필수 여부가 달라 Bean Validation 대신 Service에서 검증
+        String content,
+
+        // IMAGE/FILE 타입일 때 필수, TEXT는 사용 안 함
+        String fileUrl
 
 ) {}

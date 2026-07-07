@@ -37,7 +37,7 @@ public class ChatMessage {
 
     @Column(name = "file_url")
     private String fileUrl;
-    // 현재 미사용 (Phase 5 파일 전송 구현 시 IMAGE/FILE 타입과 함께 사용 예정)
+    // IMAGE/FILE 타입일 때만 값 존재
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -55,5 +55,14 @@ public class ChatMessage {
 
     public static ChatMessage createText(Long roomId, Long senderId, String content) {
         return new ChatMessage(roomId, senderId, ChatMessageType.TEXT, content, null);
+    }
+
+    public static ChatMessage createImage(Long roomId, Long senderId, String fileUrl) {
+        return new ChatMessage(roomId, senderId, ChatMessageType.IMAGE, null, fileUrl);
+    }
+
+    // fileName: 원본 파일명, content 필드를 그대로 재사용 (별도 필드 추가하지 않음)
+    public static ChatMessage createFile(Long roomId, Long senderId, String fileUrl, String fileName) {
+        return new ChatMessage(roomId, senderId, ChatMessageType.FILE, fileName, fileUrl);
     }
 }

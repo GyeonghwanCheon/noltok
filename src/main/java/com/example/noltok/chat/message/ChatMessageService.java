@@ -40,8 +40,17 @@ public class ChatMessageService {
         chatRoomMemberRepository.findByChatRoomIdAndUserIdAndIsActiveTrue(roomId, senderId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_CHATROOM_MEMBER));
 
-        // 2. 검증 통과 시 저장/브로드캐스트는 Kafka로 위임 (ChatMessageConsumer가 비동기 처리)
-        chatMessageProducer.publish(roomId, senderId, request.content());
+        // 2. 타입별 필수값 검증 (CreateRoomRequest.validateRoomFields()와 동일 패턴)
+        if (request.type() == ChatMessageType.TEXT && (request.content() == null || request.content().isBlank())) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT);
+        }
+        if ((request.type() == ChatMessageType.IMAGE || request.type() == ChatMessageType.FILE)
+                && (request.fileUrl() == null || request.fileUrl().isBlank())) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT);
+        }
+
+        // 3. 검증 통과 시 저장/브로드캐스트는 Kafka로 위임 (ChatMessageConsumer가 비동기 처리)
+        chatMessageProducer.publish(roomId, senderId, request.type(), request.content(), request.fileUrl());
     }
 
     @Transactional(readOnly = true)

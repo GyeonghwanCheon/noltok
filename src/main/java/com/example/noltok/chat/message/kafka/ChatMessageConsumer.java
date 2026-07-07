@@ -26,8 +26,12 @@ public class ChatMessageConsumer {
             containerFactory = "chatMessageKafkaListenerContainerFactory")
     @Transactional
     public void consume(ChatMessageEvent event) {
-        // 1. DB 저장 (기존 ChatMessageService.sendMessage()에 있던 로직)
-        ChatMessage message = ChatMessage.createText(event.roomId(), event.senderId(), event.content());
+        // 1. 타입별로 알맞은 팩토리 메서드로 DB 저장
+        ChatMessage message = switch (event.type()) {
+            case TEXT -> ChatMessage.createText(event.roomId(), event.senderId(), event.content());
+            case IMAGE -> ChatMessage.createImage(event.roomId(), event.senderId(), event.fileUrl());
+            case FILE -> ChatMessage.createFile(event.roomId(), event.senderId(), event.fileUrl(), event.content());
+        };
         chatMessageRepository.save(message);
 
         // 2. 발신자 닉네임 조회

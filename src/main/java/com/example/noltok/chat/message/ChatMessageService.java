@@ -6,6 +6,7 @@ import com.example.noltok.chat.ChatRoomRepository;
 import com.example.noltok.chat.message.dto.request.SendMessageRequest;
 import com.example.noltok.chat.message.dto.response.ChatMessageListResponse;
 import com.example.noltok.chat.message.dto.response.ChatMessageResponse;
+import com.example.noltok.chat.message.kafka.ChatMessageProducer;
 import com.example.noltok.global.exception.BusinessException;
 import com.example.noltok.global.exception.ErrorCode;
 import com.example.noltok.user.User;
@@ -14,7 +15,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,25 +32,16 @@ public class ChatMessageService {
     private final ChatRoomRepository chatRoomRepository;
     private final ChatRoomMemberRepository chatRoomMemberRepository;
     private final UserRepository userRepository;
-    private final SimpMessagingTemplate simpMessagingTemplate;
+    private final ChatMessageProducer chatMessageProducer;
 
-    @Transactional
+    @Transactional(readOnly = true)
     public void sendMessage(Long roomId, Long senderId, SendMessageRequest request) {
-        // 1. 발신자가 활성 멤버인지 확인
+        // 1. 발신자가 활성 멤버인지 확인 (동기 검증, Kafka를 거치지 않고 즉시 거부)
         chatRoomMemberRepository.findByChatRoomIdAndUserIdAndIsActiveTrue(roomId, senderId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_CHATROOM_MEMBER));
 
-        // 2. 메시지 저장
-        ChatMessage message = ChatMessage.createText(roomId, senderId, request.content());
-        chatMessageRepository.save(message);
-
-        // 3. 발신자 닉네임 조회
-        User sender = userRepository.findById(senderId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-
-        // 4. 방 구독자 전원에게 브로드캐스트 (Kafka 없는 동기 버전)
-        ChatMessageResponse response = ChatMessageResponse.of(message, sender.getNickname());
-        simpMessagingTemplate.convertAndSend("/topic/rooms/" + roomId, response);
+        // 2. 검증 통과 시 저장/브로드캐스트는 Kafka로 위임 (ChatMessageConsumer가 비동기 처리)
+        chatMessageProducer.publish(roomId, senderId, request.content());
     }
 
     @Transactional(readOnly = true)

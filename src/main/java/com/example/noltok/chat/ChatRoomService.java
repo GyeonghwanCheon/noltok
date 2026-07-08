@@ -211,17 +211,15 @@ public class ChatRoomService {
         List<ChatRoomMember> members = chatRoomMemberRepository
                 .findByChatRoomIdAndIsActiveTrue(roomId);
 
-        // 4. 각 멤버의 userId로 User 정보 조회
-        // ⚠️ N+1 발생 지점:
-        // → 멤버 수만큼 SELECT 쿼리 발생
-        // → 멤버가 100명이면 100번 쿼리
-        // → 추후 userRepository.findAllById(userIds)로 한 번에 조회하는 방식으로 최적화 예정
+        // 4. 각 멤버의 userId로 User 정보 일괄 조회
+        // → findAllById()로 한 번에 조회 후 Map으로 변환 (N+1 방지,
+        //   docs/optimization-log.md [1] 해결, 2026-07-08)
+        List<Long> userIds = members.stream().map(ChatRoomMember::getUserId).toList();
+        Map<Long, User> userMap = userRepository.findAllById(userIds).stream()
+                .collect(Collectors.toMap(User::getId, user -> user));
+
         List<MemberDto> memberDtos = members.stream()
-                .map(member -> {
-                    User user = userRepository.findById(member.getUserId())
-                            .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-                    return MemberDto.of(member, user);
-                })
+                .map(member -> MemberDto.of(member, userMap.get(member.getUserId())))
                 .toList();
 
         return ChatRoomDetailResponse.of(chatRoom, myMembership, memberDtos);
@@ -234,16 +232,16 @@ public class ChatRoomService {
         // 1. GROUP 채팅방 이름 부분일치 검색
         List<ChatRoom> chatRooms = chatRoomRepository.searchByRoomname(name);
 
-        // 2. 각 채팅방의 활성 멤버 수 조회
-        // ⚠️ N+1 발생 지점:
-        // → 검색된 채팅방 수만큼 COUNT 쿼리 발생
-        // → 추후 한 번의 쿼리로 최적화 예정
+        // 2. 검색된 채팅방들의 활성 멤버 수를 배치로 일괄 조회 (N+1 방지,
+        //    docs/optimization-log.md [2] 해결, 2026-07-08)
+        List<Long> roomIds = chatRooms.stream().map(ChatRoom::getId).toList();
+        Map<Long, Long> memberCountMap = roomIds.isEmpty()
+                ? Map.of()
+                : chatRoomMemberRepository.countActiveMembersByChatRoomIds(roomIds).stream()
+                        .collect(Collectors.toMap(RoomMemberCountProjection::getRoomId, RoomMemberCountProjection::getMemberCount));
+
         List<SearchRoomDto> rooms = chatRooms.stream()
-                .map(room -> {
-                    int memberCount = chatRoomMemberRepository
-                            .countByChatRoomIdAndIsActiveTrue(room.getId());
-                    return SearchRoomDto.of(room, memberCount);
-                })
+                .map(room -> SearchRoomDto.of(room, memberCountMap.getOrDefault(room.getId(), 0L).intValue()))
                 .toList();
 
         return ChatRoomSearchResponse.of(rooms);

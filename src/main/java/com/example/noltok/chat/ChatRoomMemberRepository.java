@@ -18,16 +18,32 @@ public interface ChatRoomMemberRepository extends JpaRepository<ChatRoomMember, 
     Optional<ChatRoomMember> findByChatRoomIdAndUserIdAndIsActiveTrue(Long roomId, Long userId);
 
     // 특정 유저의 활성 채팅방 목록 조회
+    // → JOIN FETCH로 chatRoom을 함께 로딩해서, getMyRooms()에서
+    //   member.getChatRoom()에 접근할 때 방마다 추가 쿼리가 나가는 걸 방지
+    //   (docs/optimization-log.md [3] 해결, 2026-07-08)
     @Query("""
         SELECT m FROM ChatRoomMember m
+        JOIN FETCH m.chatRoom r
         WHERE m.userId = :userId
         AND m.isActive = true
-        AND m.chatRoom.isActive = true
+        AND r.isActive = true
     """)
     List<ChatRoomMember> findActiveRoomsByUserId(@Param("userId") Long userId);
 
     // 특정 방의 활성 멤버 수 조회
     int countByChatRoomIdAndIsActiveTrue(Long roomId);
+
+    // 검색된 채팅방 여러 개의 활성 멤버 수를 배치로 조회 (N+1 방지)
+    // → countUnreadMessagesByUserId()와 동일한 Projection+GROUP BY 패턴
+    //   (docs/optimization-log.md [2] 해결, 2026-07-08)
+    @Query("""
+        SELECT m.chatRoom.id AS roomId, COUNT(m) AS memberCount
+        FROM ChatRoomMember m
+        WHERE m.chatRoom.id IN :roomIds
+        AND m.isActive = true
+        GROUP BY m.chatRoom.id
+    """)
+    List<RoomMemberCountProjection> countActiveMembersByChatRoomIds(@Param("roomIds") List<Long> roomIds);
 
     // isActive 관계없이 멤버십 조회
     // → 재입장 케이스 처리용

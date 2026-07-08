@@ -14,6 +14,8 @@ import com.example.noltok.friend.FriendRepository;
 import com.example.noltok.friend.FriendStatus;
 import com.example.noltok.global.exception.BusinessException;
 import com.example.noltok.global.exception.ErrorCode;
+import com.example.noltok.notification.NotificationType;
+import com.example.noltok.notification.kafka.NotificationProducer;
 import com.example.noltok.user.User;
 import com.example.noltok.user.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -38,6 +40,7 @@ public class ChatRoomService {
     private final FriendRepository friendRepository;
     private final BlockRepository blockRepository;
     private final PasswordEncoder passwordEncoder;
+    private final NotificationProducer notificationProducer;
 
     @Transactional
     public ChatRoomResponse createRoom(Long userId, CreateRoomRequest request) {
@@ -385,7 +388,15 @@ public class ChatRoomService {
             invitedMemberDtos.add(MemberDto.of(member, invitedUser));
         }
 
-        // 6. 응답 메시지 생성
+        // 6. 초대된 유저 전원에게 채팅방 초대 알림 발행
+        User inviter = userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        for (User invitedUser : invitedUsers) {
+            notificationProducer.publish(invitedUser.getId(), NotificationType.ROOM_INVITE,
+                    inviter.getNickname() + "님이 '" + chatRoom.getRoomname() + "'에 초대했습니다.");
+        }
+
+        // 7. 응답 메시지 생성
         return ChatRoomInviteResponse.of(roomId, invitedMemberDtos, request.nicknames());
     }
 

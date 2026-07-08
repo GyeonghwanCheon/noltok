@@ -15,6 +15,8 @@ import com.example.noltok.friend.dto.response.FriendRequestResponse;
 import com.example.noltok.friend.dto.response.FriendSentListResponse;
 import com.example.noltok.global.exception.BusinessException;
 import com.example.noltok.global.exception.ErrorCode;
+import com.example.noltok.notification.NotificationType;
+import com.example.noltok.notification.kafka.NotificationProducer;
 import com.example.noltok.user.User;
 import com.example.noltok.user.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -32,6 +34,7 @@ public class FriendService {
     private final FriendRepository friendRepository;
     private final UserRepository userRepository;
     private final BlockRepository blockRepository;
+    private final NotificationProducer notificationProducer;
 
     @Transactional
     public FriendRequestResponse sendRequest(Long userId, FriendRequestRequest request) {
@@ -53,6 +56,12 @@ public class FriendService {
         Friend friend = friendRepository.findRelationBetween(userId, target.getId())
                 .map(existing -> reuseIfRejected(existing, userId, target.getId()))
                 .orElseGet(() -> friendRepository.save(Friend.create(userId, target.getId())));
+
+        // 5. 수신자에게 친구 요청 알림 발행
+        User requester = userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        notificationProducer.publish(target.getId(), NotificationType.FRIEND_REQUEST,
+                requester.getNickname() + "님이 친구 요청을 보냈습니다.");
 
         return FriendRequestResponse.of(friend, target.getNickname());
     }

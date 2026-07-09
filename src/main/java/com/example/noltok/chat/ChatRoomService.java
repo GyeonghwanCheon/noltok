@@ -23,6 +23,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -152,16 +153,36 @@ public class ChatRoomService {
         Map<Long, Integer> unreadCountMap = chatRoomMemberRepository.countUnreadMessagesByUserId(userId).stream()
                 .collect(Collectors.toMap(UnreadCountProjection::getRoomId, p -> p.getUnreadCount().intValue()));
 
-        // 3. 각 멤버십에서 채팅방 정보 + 내 역할 + 안읽은 수 추출
-        // → updatedAt 기준 내림차순 정렬 (최근 활동 순)
-        List<ChatRoomSummaryDto> rooms = myMemberships.stream()
+        // 3. 각 방의 마지막 메시지를 배치 쿼리 1번으로 전체 조회 (N+1 방지)
+        List<Long> roomIds = myMemberships.stream().map(m -> m.getChatRoom().getId()).toList();
+        Map<Long, ChatMessage> lastMessageMap = roomIds.isEmpty()
+                ? Map.of()
+                : chatMessageRepository.findLastMessagesByRoomIds(roomIds).stream()
+                        .collect(Collectors.toMap(ChatMessage::getRoomId, cm -> cm));
+
+        // 4. 정렬 기준 시각(마지막 메시지 시각, 없으면 방 상태변경 시각) 기준으로
+        //    먼저 정렬 → DTO의 날짜만 남은 필드로 정렬하면 같은 날짜 안에서
+        //    시분초 정보가 사라지는 문제를 피하기 위해 원본 LocalDateTime으로 정렬
+        List<ChatRoomMember> sortedMemberships = myMemberships.stream()
+                .sorted((a, b) -> sortKey(b, lastMessageMap).compareTo(sortKey(a, lastMessageMap)))
+                .toList();
+
+        // 5. 정렬된 순서 그대로 채팅방 정보 + 내 역할 + 안읽은 수 + 마지막 메시지 추출
+        List<ChatRoomSummaryDto> rooms = sortedMemberships.stream()
                 .map(member -> ChatRoomSummaryDto.of(
                         member.getChatRoom(), member,
-                        unreadCountMap.getOrDefault(member.getChatRoom().getId(), 0)))
-                .sorted((a, b) -> b.updatedAt().compareTo(a.updatedAt()))
+                        unreadCountMap.getOrDefault(member.getChatRoom().getId(), 0),
+                        lastMessageMap.get(member.getChatRoom().getId())))
                 .toList();
 
         return ChatRoomListResponse.of(rooms);
+    }
+
+    // 채팅방 목록 정렬 기준 시각: 마지막 메시지가 있으면 그 시각, 없으면 방의
+    // 상태변경(생성 포함) 시각으로 폴백 → 빈 방도 생성 시각 기준으로 목록에 남음
+    private LocalDateTime sortKey(ChatRoomMember member, Map<Long, ChatMessage> lastMessageMap) {
+        ChatMessage lastMessage = lastMessageMap.get(member.getChatRoom().getId());
+        return lastMessage != null ? lastMessage.getCreatedAt() : member.getChatRoom().getUpdatedAt();
     }
 
     // markAsRead() 메서드만 추가, 기존 코드 유지

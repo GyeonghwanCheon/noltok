@@ -14,6 +14,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -59,10 +60,12 @@ public class AuthController {
     // 로그아웃
     @PostMapping("/logout")
     public ResponseEntity<ApiResponse<Void>> logout(
-            @AuthenticationPrincipal UserDetails userDetails) {
+            @AuthenticationPrincipal UserDetails userDetails,
+            @RequestHeader("Authorization") String authorizationHeader) {
 
         Long userId = Long.parseLong(userDetails.getUsername());
-        authService.logout(userId);
+        String accessToken = authorizationHeader.substring(7);  // "Bearer " 이후 문자열
+        authService.logout(userId, accessToken);
 
         return ResponseEntity.ok(ApiResponse.ok("로그아웃 완료", null));
     }

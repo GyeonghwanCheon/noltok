@@ -6,6 +6,7 @@ import com.example.noltok.auth.dto.ReissueRequest;
 import com.example.noltok.global.exception.BusinessException;
 import com.example.noltok.global.exception.ErrorCode;
 import com.example.noltok.global.jwt.JwtProvider;
+import com.example.noltok.global.jwt.TokenBlacklistService;
 import com.example.noltok.user.User;
 import com.example.noltok.user.UserRepository;
 import com.example.noltok.user.dto.request.SignUpRequest;
@@ -24,6 +25,7 @@ public class AuthService {
     private final RefreshTokenRepository refreshTokenRepository;
     private final JwtProvider jwtProvider;
     private final PasswordEncoder passwordEncoder;
+    private final TokenBlacklistService tokenBlacklistService;
 
     @Value("${jwt.refresh-expiration}")
     private long refreshExpiration;
@@ -103,8 +105,14 @@ public class AuthService {
 
     // 로그아웃
     @Transactional
-    public void logout(Long userId) {
+    public void logout(Long userId, String accessToken) {
+        // 1. Refresh Token 삭제
         refreshTokenRepository.deleteByUserId(userId);
+
+        // 2. Access Token은 자체 만료까지 남은 시간만큼만 블랙리스트에 등록
+        //    (그 이상 남겨둘 필요 없음 — 이미 만료됐어야 할 시점 이후엔 어차피 무효)
+        long remainingMillis = jwtProvider.getExpiration(accessToken).getTime() - System.currentTimeMillis();
+        tokenBlacklistService.blacklist(accessToken, remainingMillis);
     }
 
 

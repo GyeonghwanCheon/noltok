@@ -21,6 +21,7 @@ public class JwtProvider {
     private final SecretKey secretKey;
     private final long accessExpiration;
     private final long refreshExpiration;
+    private final TokenBlacklistService tokenBlacklistService;
 
     // application.properties의 값을 생성자에서 주입
     // @Value를 필드에 직접 쓰지 않고 생성자에서 받는 이유:
@@ -28,11 +29,13 @@ public class JwtProvider {
     public JwtProvider(
             @Value("${jwt.secret}") String secret,
             @Value("${jwt.access-expiration}") long accessExpiration,
-            @Value("${jwt.refresh-expiration}") long refreshExpiration) {
+            @Value("${jwt.refresh-expiration}") long refreshExpiration,
+            TokenBlacklistService tokenBlacklistService) {
 
         this.secretKey = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
         this.accessExpiration = accessExpiration;
         this.refreshExpiration = refreshExpiration;
+        this.tokenBlacklistService = tokenBlacklistService;
     }
 
     // Access Token 생성
@@ -65,6 +68,14 @@ public class JwtProvider {
                     .verifyWith(secretKey)
                     .build()
                     .parseSignedClaims(token);
+
+            // 서명·만료 검증을 통과해도 로그아웃으로 블랙리스트에 오른 토큰이면 무효 처리
+            // → REST(JwtAuthenticationFilter)/WebSocket(StompAuthInterceptor) 모두
+            //   이 메서드 하나만 거치므로, 여기 한 곳에 추가하면 양쪽 다 커버됨
+            if (tokenBlacklistService.isBlacklisted(token)) {
+                return false;
+            }
+
             return true;
         } catch (ExpiredJwtException e) {
             log.warn("만료된 JWT 토큰입니다.");
@@ -87,5 +98,16 @@ public class JwtProvider {
                 .getPayload();
 
         return Long.parseLong(claims.getSubject());
+    }
+
+    // 토큰의 만료 시각 추출 (로그아웃 시 블랙리스트 TTL 계산용)
+    public Date getExpiration(String token) {
+        Claims claims = Jwts.parser()
+                .verifyWith(secretKey)
+                .build()
+                .parseSignedClaims(token)
+                .getPayload();
+
+        return claims.getExpiration();
     }
 }

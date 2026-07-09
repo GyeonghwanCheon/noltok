@@ -65,4 +65,14 @@ public class ChatMessage {
     public static ChatMessage createFile(Long roomId, Long senderId, String fileUrl, String fileName) {
         return new ChatMessage(roomId, senderId, ChatMessageType.FILE, fileName, fileUrl);
     }
+
+    // 채팅방 목록의 lastMessage, 알림 content 등에서 공통으로 쓰는 타입별 미리보기 문구
+    // (카카오톡 등 채팅 리스트의 일반적인 관례)
+    public String toPreviewText() {
+        return switch (type) {
+            case TEXT -> content;
+            case IMAGE -> "[사진]";
+            case FILE -> "[파일] " + content;
+        };
+    }
 }

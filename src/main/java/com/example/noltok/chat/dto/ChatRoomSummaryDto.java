@@ -21,21 +21,9 @@ public record ChatRoomSummaryDto(
                 room.getRoomname(),
                 room.getType().name(),
                 member.getRole().name(),
-                toPreview(lastMessage),
+                lastMessage != null ? lastMessage.toPreviewText() : null,
                 unreadCount,
                 room.getUpdatedAt().toLocalDate()
         );
-    }
-
-    // 메시지 타입별 목록 미리보기 문구 (카카오톡 등 채팅 리스트의 일반적인 관례)
-    private static String toPreview(ChatMessage lastMessage) {
-        if (lastMessage == null) {
-            return null;
-        }
-        return switch (lastMessage.getType()) {
-            case TEXT -> lastMessage.getContent();
-            case IMAGE -> "[사진]";
-            case FILE -> "[파일] " + lastMessage.getContent();
-        };
     }
 }

@@ -16,8 +16,6 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
-
 @Service
 @RequiredArgsConstructor
 public class AuthService {
@@ -66,9 +64,13 @@ public class AuthService {
         String refreshToken = jwtProvider.generateRefreshToken(user.getId());
 
         // 4. Refresh Token 저장 (기존 토큰 있으면 rotate, 없으면 새로 저장)
+        // → Redis는 JPA 변경감지가 없어서 rotate() 후 save()를 명시적으로 호출해야 함
         refreshTokenRepository.findByUserId(user.getId())
                 .ifPresentOrElse(
-                        existing -> existing.rotate(refreshToken, refreshExpiration),
+                        existing -> {
+                            existing.rotate(refreshToken, refreshExpiration);
+                            refreshTokenRepository.save(existing);
+                        },
                         () -> refreshTokenRepository.save(
                                 RefreshToken.create(user.getId(), refreshToken, refreshExpiration)
                         )
@@ -81,23 +83,20 @@ public class AuthService {
     @Transactional
     public LoginResponse reissue(ReissueRequest request) {
 
-        // 1. Refresh Token으로 DB 조회
+        // 1. Refresh Token으로 조회
+        // → 만료된 토큰은 Redis TTL에 의해 이미 삭제된 상태라 여기서 자연히 걸러짐
+        //   (별도의 만료 여부 수동 체크가 필요 없음)
         RefreshToken refreshToken = refreshTokenRepository
                 .findByToken(request.refreshToken())
                 .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_REFRESH_TOKEN));
 
-        // 2. 만료 여부 확인
-        if (refreshToken.getExpiresAt().isBefore(LocalDateTime.now())) {
-            refreshTokenRepository.delete(refreshToken);
-            throw new BusinessException(ErrorCode.EXPIRED_REFRESH_TOKEN);
-        }
-
-        // 3. 새 토큰 생성
+        // 2. 새 토큰 생성
         String newAccessToken = jwtProvider.generateAccessToken(refreshToken.getUserId());
         String newRefreshToken = jwtProvider.generateRefreshToken(refreshToken.getUserId());
 
-        // 4. Refresh Token rotate
+        // 3. Refresh Token rotate → Redis는 변경감지가 없으므로 save()로 명시적 반영
         refreshToken.rotate(newRefreshToken, refreshExpiration);
+        refreshTokenRepository.save(refreshToken);
 
         return LoginResponse.of(newAccessToken, newRefreshToken);
     }

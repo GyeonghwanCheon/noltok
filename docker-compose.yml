@@ -25,3 +25,9 @@ services:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
     command: server /data --console-address ":9001"
+
+  redis:
+    image: redis:7-alpine
+    container_name: noltok-redis
+    ports:
+      - "6379:6379"

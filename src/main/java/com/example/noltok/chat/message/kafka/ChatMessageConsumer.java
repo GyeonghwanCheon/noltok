@@ -2,6 +2,7 @@ package com.example.noltok.chat.message.kafka;
 
 import com.example.noltok.chat.ChatRoomMember;
 import com.example.noltok.chat.ChatRoomMemberRepository;
+import com.example.noltok.chat.UnreadCountCacheService;
 import com.example.noltok.chat.message.ChatMessage;
 import com.example.noltok.chat.message.ChatMessageRepository;
 import com.example.noltok.chat.message.dto.response.ChatMessageResponse;
@@ -18,6 +19,8 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+
 @Component
 @RequiredArgsConstructor
 public class ChatMessageConsumer {
@@ -28,6 +31,7 @@ public class ChatMessageConsumer {
     private final SimpMessagingTemplate simpMessagingTemplate;
     private final UserPresenceService userPresenceService;
     private final NotificationProducer notificationProducer;
+    private final UnreadCountCacheService unreadCountCacheService;
 
     @KafkaListener(topics = KafkaConfig.CHAT_MESSAGE_TOPIC,
             groupId = "chat-message-group",
@@ -50,12 +54,19 @@ public class ChatMessageConsumer {
         ChatMessageResponse response = ChatMessageResponse.of(message, sender.getNickname());
         simpMessagingTemplate.convertAndSend("/topic/rooms/" + event.roomId(), response);
 
-        // 4. 오프라인인 방 멤버에게만 알림 발행 (온라인이면 이미 위 브로드캐스트로 실시간 수신 중)
-        String content = sender.getNickname() + ": " + message.toPreviewText();
-        chatRoomMemberRepository.findByChatRoomIdAndIsActiveTrue(event.roomId()).stream()
+        // 4. 발신자를 제외한 방 활성 멤버 목록 (알림 필터링 + 캐시 무효화에 공통으로 사용)
+        List<Long> otherMemberIds = chatRoomMemberRepository.findByChatRoomIdAndIsActiveTrue(event.roomId()).stream()
                 .map(ChatRoomMember::getUserId)
                 .filter(userId -> !userId.equals(event.senderId()))
+                .toList();
+
+        // 5. 오프라인인 멤버에게만 알림 발행 (온라인이면 이미 위 브로드캐스트로 실시간 수신 중)
+        String content = sender.getNickname() + ": " + message.toPreviewText();
+        otherMemberIds.stream()
                 .filter(userId -> !userPresenceService.isOnline(userId))
                 .forEach(userId -> notificationProducer.publish(userId, NotificationType.CHAT_MESSAGE, content));
+
+        // 6. 안읽은 수가 늘어난 멤버 전원의 캐시 무효화 (다음 조회 때 재계산됨)
+        otherMemberIds.forEach(unreadCountCacheService::invalidate);
     }
 }

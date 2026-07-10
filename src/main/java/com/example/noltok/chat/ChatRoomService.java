@@ -42,6 +42,7 @@ public class ChatRoomService {
     private final BlockRepository blockRepository;
     private final PasswordEncoder passwordEncoder;
     private final NotificationProducer notificationProducer;
+    private final UnreadCountCacheService unreadCountCacheService;
 
     @Transactional
     public ChatRoomResponse createRoom(Long userId, CreateRoomRequest request) {
@@ -149,9 +150,14 @@ public class ChatRoomService {
         List<ChatRoomMember> myMemberships = chatRoomMemberRepository
                 .findActiveRoomsByUserId(userId);
 
-        // 2. 안읽은 메시지 수를 배치 쿼리 1번으로 전체 조회 (N+1 방지)
-        Map<Long, Integer> unreadCountMap = chatRoomMemberRepository.countUnreadMessagesByUserId(userId).stream()
-                .collect(Collectors.toMap(UnreadCountProjection::getRoomId, p -> p.getUnreadCount().intValue()));
+        // 2. 안읽은 메시지 수 — Redis 캐시 우선 조회, 미스 시 배치 쿼리로 계산 후 캐싱
+        Map<Long, Integer> unreadCountMap = unreadCountCacheService.get(userId)
+                .orElseGet(() -> {
+                    Map<Long, Integer> computed = chatRoomMemberRepository.countUnreadMessagesByUserId(userId).stream()
+                            .collect(Collectors.toMap(UnreadCountProjection::getRoomId, p -> p.getUnreadCount().intValue()));
+                    unreadCountCacheService.put(userId, computed);
+                    return computed;
+                });
 
         // 3. 각 방의 마지막 메시지를 배치 쿼리 1번으로 전체 조회 (N+1 방지)
         List<Long> roomIds = myMemberships.stream().map(m -> m.getChatRoom().getId()).toList();
@@ -207,6 +213,9 @@ public class ChatRoomService {
 
         // 4. 최신 메시지 id까지 읽음 처리
         member.markAsRead(latestMessage.get().getId());
+
+        // 5. 안읽은 수 캐시 무효화 (다음 조회 때 정확한 값으로 재계산됨)
+        unreadCountCacheService.invalidate(userId);
 
         return ChatRoomReadResponse.of(roomId, member.getLastReadMessageId());
     }

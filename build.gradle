@@ -49,6 +49,13 @@ dependencies {
     testCompileOnly 'org.projectlombok:lombok'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
     testAnnotationProcessor 'org.projectlombok:lombok'
+
+    // Testcontainers (Phase 8, 통합 테스트)
+    // spring-boot-testcontainers는 org.testcontainers:testcontainers 코어 버전만
+    // BOM으로 관리해서, junit-jupiter/mysql 등 나머지 모듈은 같은 버전을 직접 명시해야 함
+    testImplementation 'org.springframework.boot:spring-boot-testcontainers'
+    testImplementation 'org.testcontainers:junit-jupiter:1.21.4'
+    testImplementation 'org.testcontainers:mysql:1.21.4'
 }
 
 tasks.named('test') {

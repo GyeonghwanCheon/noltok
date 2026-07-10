@@ -7,7 +7,13 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 @Entity
-@Table(name = "friends")
+@Table(name = "friends", indexes = {
+        @Index(name = "idx_friends_requester_receiver", columnList = "requester_id, receiver_id"),
+        @Index(name = "idx_friends_receiver_requester", columnList = "receiver_id, requester_id")
+})
+// findRelationBetween()이 (requesterId,receiverId) OR (receiverId,requesterId)
+// 형태의 양방향 조회라, 인덱스도 정방향/역방향 둘 다 있어야 각 OR 분기가
+// 인덱스를 탈 수 있음 (하나만 있으면 반대 방향 조회는 풀스캔됨)
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Friend extends BaseEntity {

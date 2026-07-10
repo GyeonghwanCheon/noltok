@@ -8,7 +8,10 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "chat_messages")
+@Table(name = "chat_messages",
+        indexes = @Index(name = "idx_chat_messages_room_id_id", columnList = "room_id, id"))
+// room_id 기준 조회 + id 역순 정렬(커서 페이지네이션, lastMessage 조회)이
+// 사실상 전부라, 무한 증가 테이블 중 우선순위가 가장 높음 (docs/optimization-log.md 참고)
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class ChatMessage {

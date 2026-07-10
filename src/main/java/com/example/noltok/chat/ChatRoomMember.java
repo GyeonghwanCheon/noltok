@@ -12,10 +12,15 @@ import java.time.LocalDateTime;
 @Table(name = "chat_room_members",
         uniqueConstraints = @UniqueConstraint(
                 columnNames = {"room_id", "user_id"}
-        )
+        ),
+        indexes = @Index(name = "idx_chat_room_members_user_id_is_active", columnList = "user_id, is_active")
 )
 // uniqueConstraints 이유:
 // → 같은 유저가 같은 방에 중복 등록되는 것을 DB 레벨에서 방지
+// indexes 이유:
+// → (room_id, user_id) 유니크 제약의 자동 인덱스는 room_id가 왼쪽이라
+//   user_id 단독 조회(findActiveRoomsByUserId, 내 채팅방 목록)엔 못 씀
+//   → user_id를 왼쪽으로 하는 인덱스를 별도로 추가
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class ChatRoomMember {

@@ -8,7 +8,10 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "notifications")
+@Table(name = "notifications",
+        indexes = @Index(name = "idx_notifications_receiver_id_id", columnList = "receiver_id, id"))
+// receiver_id 기준 조회 + id 역순 정렬(커서 페이지네이션)이 사실상
+// 전부라, chat_messages와 동일한 이유로 우선순위 높음
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Notification {

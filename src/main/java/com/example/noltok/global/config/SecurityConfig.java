@@ -1,10 +1,13 @@
 package com.example.noltok.global.config;
 
+import com.example.noltok.global.exception.ErrorCode;
 import com.example.noltok.global.jwt.JwtAuthenticationFilter;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -44,6 +47,21 @@ public class SecurityConfig {
                 // 세션 사용 안 함 (Stateless)
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+
+                // 인증 안 된 요청의 응답 형식 — formLogin/httpBasic을 둘 다 껐기 때문에
+                // AuthenticationEntryPoint를 직접 안 넣으면 Spring Security 기본값인
+                // 403(Http403ForbiddenEntryPoint)이 나감. api-convention.md의
+                // "401 Unauthorized: 토큰 없음/만료/위변조" 기준에 맞춰 401로 통일
+                // (docs/troubleshooting-log.md 참고 — ControllerTest 작성 중 발견)
+                .exceptionHandling(exception -> exception
+                        .authenticationEntryPoint((request, response, authException) -> {
+                            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                            response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+                            response.setCharacterEncoding("UTF-8");
+                            response.getWriter().write(
+                                    "{\"success\":false,\"message\":\"" + ErrorCode.UNAUTHORIZED.getMessage() + "\",\"data\":null}");
+                        })
+                )
 
                 // 경로별 인증 설정
                 .authorizeHttpRequests(auth -> auth

@@ -13,6 +13,7 @@ import org.springframework.stereotype.Component;
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
+import java.util.UUID;
 
 @Slf4j
 @Component
@@ -53,7 +54,15 @@ public class JwtProvider {
         Date now = new Date();
         Date expiredAt = new Date(now.getTime() + expiration);
 
+        // JWT의 iat/exp는 초 단위(NumericDate)라, 같은 유저에게 같은 초 안에
+        // 두 번 발급하면(예: 로그인 직후 바로 재발급) subject/iat/exp가 전부
+        // 같아져서 서명까지 완전히 동일한 토큰 문자열이 나옴 — Refresh Token
+        // Rotation의 "이전 토큰은 무효화"라는 전제 자체가 깨짐 (재발급했는데
+        // 새 토큰이 이전 토큰과 같은 값이 되는 문제, docs/troubleshooting-log.md
+        // 2026-07-13 참고). jti(고유 식별자)를 추가해 타이밍과 무관하게 항상
+        // 유니크한 토큰이 나오도록 보장
         return Jwts.builder()
+                .id(UUID.randomUUID().toString())  // jti — 토큰 고유 식별자
                 .subject(String.valueOf(userId))  // 토큰 주체 = userId
                 .issuedAt(now)                    // 발급 시간
                 .expiration(expiredAt)            // 만료 시간

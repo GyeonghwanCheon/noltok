@@ -56,6 +56,10 @@ dependencies {
     testImplementation 'org.springframework.boot:spring-boot-testcontainers'
     testImplementation 'org.testcontainers:junit-jupiter:1.21.4'
     testImplementation 'org.testcontainers:mysql:1.21.4'
+    testImplementation 'org.testcontainers:kafka:1.21.4'
+
+    // 비동기(Kafka Consumer) 처리 완료를 폴링으로 기다리기 위함 (Thread.sleep 대체)
+    testImplementation 'org.awaitility:awaitility:4.2.2'
 }
 
 tasks.named('test') {

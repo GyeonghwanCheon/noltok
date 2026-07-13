@@ -65,18 +65,14 @@ public class AuthService {
         String accessToken = jwtProvider.generateAccessToken(user.getId());
         String refreshToken = jwtProvider.generateRefreshToken(user.getId());
 
-        // 4. Refresh Token 저장 (기존 토큰 있으면 rotate, 없으면 새로 저장)
-        // → Redis는 JPA 변경감지가 없어서 rotate() 후 save()를 명시적으로 호출해야 함
-        refreshTokenRepository.findByUserId(user.getId())
-                .ifPresentOrElse(
-                        existing -> {
-                            existing.rotate(refreshToken, refreshExpiration);
-                            refreshTokenRepository.save(existing);
-                        },
-                        () -> refreshTokenRepository.save(
-                                RefreshToken.create(user.getId(), refreshToken, refreshExpiration)
-                        )
-                );
+        // 4. Refresh Token 저장 — 기존 토큰이 있으면 삭제 후 새로 저장
+        // → "필드 값 변경 후 save()"(rotate) 대신 삭제 후 재생성 방식 사용.
+        //   실제 버그 원인은 Redis가 아니라 JwtProvider가 같은 초 안에서
+        //   동일한 토큰을 발급하던 문제였음(jti 추가로 해결, docs/
+        //   troubleshooting-log.md 2026-07-13 참고) — 다만 삭제 후 재생성이
+        //   "필드만 바꿔 save()"보다 의도가 더 명확해서 그대로 유지
+        refreshTokenRepository.deleteById(user.getId());
+        refreshTokenRepository.save(RefreshToken.create(user.getId(), refreshToken, refreshExpiration));
 
         return LoginResponse.of(accessToken, refreshToken);
     }
@@ -93,12 +89,13 @@ public class AuthService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_REFRESH_TOKEN));
 
         // 2. 새 토큰 생성
-        String newAccessToken = jwtProvider.generateAccessToken(refreshToken.getUserId());
-        String newRefreshToken = jwtProvider.generateRefreshToken(refreshToken.getUserId());
+        Long userId = refreshToken.getUserId();
+        String newAccessToken = jwtProvider.generateAccessToken(userId);
+        String newRefreshToken = jwtProvider.generateRefreshToken(userId);
 
-        // 3. Refresh Token rotate → Redis는 변경감지가 없으므로 save()로 명시적 반영
-        refreshToken.rotate(newRefreshToken, refreshExpiration);
-        refreshTokenRepository.save(refreshToken);
+        // 3. Refresh Token 삭제 후 재생성 (login()과 동일한 이유)
+        refreshTokenRepository.deleteById(userId);
+        refreshTokenRepository.save(RefreshToken.create(userId, newRefreshToken, refreshExpiration));
 
         return LoginResponse.of(newAccessToken, newRefreshToken);
     }

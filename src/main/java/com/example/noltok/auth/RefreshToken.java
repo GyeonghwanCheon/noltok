@@ -37,13 +37,9 @@ public class RefreshToken {
         return new RefreshToken(userId, token, refreshExpiration / 1000);  // ms → seconds 변환
     }
 
-    // 토큰 갱신 (Refresh Token Rotation 전략)
-    // 이유: Refresh Token을 재사용하지 않고 재발급마다 새 토큰으로 교체
-    //       탈취된 토큰이 재사용되면 탐지 가능
-    // ⚠️ Redis는 JPA와 달리 변경감지가 없으므로, 이 메서드 호출 후
-    //    반드시 RefreshTokenRepository.save()를 명시적으로 호출해야 반영됨
-    public void rotate(String newToken, long refreshExpiration) {
-        this.token = newToken;
-        this.ttlSeconds = refreshExpiration / 1000;
-    }
+    // rotate()(필드 값만 바꿔서 save())는 제거함 — AuthService에서
+    // deleteById() 후 create()로 재생성하는 방식이 의도가 더 명확해서 대체함
+    // (실제 재발급 버그의 원인은 이 필드 변경 방식이 아니라 JwtProvider가
+    // 같은 초 안에서 동일한 토큰을 발급하던 문제였음 — docs/
+    // troubleshooting-log.md 2026-07-13 참고)
 }

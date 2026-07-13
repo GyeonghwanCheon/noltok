@@ -14,6 +14,7 @@ import com.example.noltok.user.dto.response.SignUpResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -105,41 +106,25 @@ class AuthServiceTest {
     // ── login() ────────────────────────────────────────────────
 
     @Test
-    void login_기존_RefreshToken이_없으면_새로_생성한다() {
+    void login_정상_로그인시_기존_RefreshToken을_삭제하고_새로_저장한다() {
         // given
         User user = testUser(userId, "user@test.com", "encoded-password", "유저");
         given(userRepository.findByEmail("user@test.com")).willReturn(Optional.of(user));
         given(passwordEncoder.matches("password1", "encoded-password")).willReturn(true);
         given(jwtProvider.generateAccessToken(userId)).willReturn("access-token");
         given(jwtProvider.generateRefreshToken(userId)).willReturn("refresh-token");
-        given(refreshTokenRepository.findByUserId(userId)).willReturn(Optional.empty());
 
         // when
         LoginResponse response = authService.login(new LoginRequest("user@test.com", "password1"));
 
-        // then
+        // then: Redis @Indexed 보조색인이 값 변경(rotate)을 못 지우는 문제 때문에
+        // 기존 토큰 유무와 무관하게 항상 deleteById() 후 새로 저장함
         assertThat(response.accessToken()).isEqualTo("access-token");
         assertThat(response.refreshToken()).isEqualTo("refresh-token");
-        verify(refreshTokenRepository).save(any(RefreshToken.class));
-    }
-
-    @Test
-    void login_기존_RefreshToken이_있으면_rotate_후_save한다() {
-        // given
-        User user = testUser(userId, "user@test.com", "encoded-password", "유저");
-        RefreshToken existing = RefreshToken.create(userId, "old-refresh-token", REFRESH_EXPIRATION);
-        given(userRepository.findByEmail("user@test.com")).willReturn(Optional.of(user));
-        given(passwordEncoder.matches("password1", "encoded-password")).willReturn(true);
-        given(jwtProvider.generateAccessToken(userId)).willReturn("access-token");
-        given(jwtProvider.generateRefreshToken(userId)).willReturn("new-refresh-token");
-        given(refreshTokenRepository.findByUserId(userId)).willReturn(Optional.of(existing));
-
-        // when
-        authService.login(new LoginRequest("user@test.com", "password1"));
-
-        // then: 새로 만들지 않고(rotate만) 기존 토큰이 갱신됨, Redis는 변경감지가 없어 save()도 호출돼야 함
-        assertThat(existing.getToken()).isEqualTo("new-refresh-token");
-        verify(refreshTokenRepository).save(existing);
+        verify(refreshTokenRepository).deleteById(userId);
+        ArgumentCaptor<RefreshToken> captor = ArgumentCaptor.forClass(RefreshToken.class);
+        verify(refreshTokenRepository).save(captor.capture());
+        assertThat(captor.getValue().getToken()).isEqualTo("refresh-token");
     }
 
     @Test
@@ -171,7 +156,7 @@ class AuthServiceTest {
     // ── reissue() ──────────────────────────────────────────────
 
     @Test
-    void reissue_정상_재발급시_rotate_후_save한다() {
+    void reissue_정상_재발급시_기존_토큰을_삭제하고_새로_저장한다() {
         // given
         RefreshToken existing = RefreshToken.create(userId, "old-refresh-token", REFRESH_EXPIRATION);
         given(refreshTokenRepository.findByToken("old-refresh-token")).willReturn(Optional.of(existing));
@@ -181,10 +166,12 @@ class AuthServiceTest {
         // when
         LoginResponse response = authService.reissue(new ReissueRequest("old-refresh-token"));
 
-        // then
+        // then: login()과 동일한 이유로 rotate() 대신 deleteById() 후 재생성
         assertThat(response.accessToken()).isEqualTo("new-access-token");
-        assertThat(existing.getToken()).isEqualTo("new-refresh-token");
-        verify(refreshTokenRepository).save(existing);
+        verify(refreshTokenRepository).deleteById(userId);
+        ArgumentCaptor<RefreshToken> captor = ArgumentCaptor.forClass(RefreshToken.class);
+        verify(refreshTokenRepository).save(captor.capture());
+        assertThat(captor.getValue().getToken()).isEqualTo("new-refresh-token");
     }
 
     @Test

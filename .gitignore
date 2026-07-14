@@ -43,3 +43,5 @@ out/
 AGENTS.md
 CLAUDE.md
 docs
+.claude/settings.local.json
+.claude/settings.json

@@ -39,6 +39,10 @@ out/
 ### 민감 정보 ###
 .env
 
+### Python (scripts/) ###
+__pycache__/
+*.pyc
+
 ### AI project docs ###
 AGENTS.md
 CLAUDE.md

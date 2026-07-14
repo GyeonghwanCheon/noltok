@@ -38,6 +38,16 @@ dependencies {
     // MinIO (S3 호환 파일 스토리지)
     implementation 'io.minio:minio:8.5.17'
 
+    // Flyway (DB 마이그레이션, Phase 8-2 ddl-auto:validate 전환용)
+    // MySQL 단일 벤더라 Liquibase 대신 선택 (decision-log.md 참고)
+    // Spring Boot 4.1.0부터 FlywayAutoConfiguration이 spring-boot-autoconfigure에서
+    // 별도 모듈(spring-boot-flyway)로 분리됨 — flyway-core/flyway-mysql만
+    // 넣으면 라이브러리는 동작하지만 Spring Boot가 자동으로 실행해주지
+    // 않아서 이 모듈이 반드시 같이 있어야 함 (docs/troubleshooting-log.md 참고)
+    implementation 'org.springframework.boot:spring-boot-flyway'
+    implementation 'org.flywaydb:flyway-core'
+    implementation 'org.flywaydb:flyway-mysql'
+
 
     testImplementation 'org.springframework.boot:spring-boot-starter-data-jpa-test'
     testImplementation 'org.springframework.boot:spring-boot-starter-data-redis-test'

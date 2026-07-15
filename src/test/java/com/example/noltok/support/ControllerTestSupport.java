@@ -27,9 +27,7 @@ public abstract class ControllerTestSupport {
     @MockitoBean
     protected TokenBlacklistService tokenBlacklistService;
 
-    // 실제로 존재하는 유저인 것처럼 JwtAuthenticationFilter가 인식하도록
-    // Mock을 설정한 뒤, 그 userId로 진짜 서명된 Access Token을 발급해
-    // Authorization 헤더 값으로 반환
+    // 존재하는 유저인 것처럼 Mock 설정 후, 진짜 서명된 Access Token을 헤더 값으로 반환
     protected String bearerToken(Long userId) {
         User user = User.create("user" + userId + "@test.com", "encoded-password", "유저" + userId);
         ReflectionTestUtils.setField(user, "id", userId);

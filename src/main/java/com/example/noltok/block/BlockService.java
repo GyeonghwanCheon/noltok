@@ -57,8 +57,7 @@ public class BlockService {
         return existing;
     }
 
-    // 차단은 "이 사람과의 모든 연결을 끊겠다"는 의도라 진행 중인 요청도 함께 정리
-    // → REJECTED는 이미 끝난 상태라 그대로 둠 (docs/decision-log.md 2026-07-03)
+    // 차단은 "이 사람과의 모든 연결을 끊겠다"는 의도라 진행 중인 친구 요청도 정리 (REJECTED는 제외)
     private void removeExistingFriendship(Long userId, Long targetId) {
         friendRepository.findRelationBetween(userId, targetId)
                 .filter(friend -> friend.getStatus() != FriendStatus.REJECTED)
@@ -103,7 +102,7 @@ public class BlockService {
         User blockedUser = userRepository.findById(block.getBlockedId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
-        // 4. Soft Delete (docs/decision-log.md 2026-07-02 결정)
+        // 4. Soft Delete
         block.deactivate();
 
         return BlockDeleteResponse.of(blockId, blockedUser.getNickname());

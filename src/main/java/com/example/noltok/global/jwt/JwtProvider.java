@@ -24,9 +24,7 @@ public class JwtProvider {
     private final long refreshExpiration;
     private final TokenBlacklistService tokenBlacklistService;
 
-    // application.properties의 값을 생성자에서 주입
-    // @Value를 필드에 직접 쓰지 않고 생성자에서 받는 이유:
-    // → 테스트 시 직접 값을 넣어서 JwtProvider를 생성할 수 있어 테스트가 용이함
+    // @Value를 필드가 아닌 생성자로 받음 — 테스트 시 직접 값을 넣어 생성 가능
     public JwtProvider(
             @Value("${jwt.secret}") String secret,
             @Value("${jwt.access-expiration}") long accessExpiration,
@@ -54,13 +52,8 @@ public class JwtProvider {
         Date now = new Date();
         Date expiredAt = new Date(now.getTime() + expiration);
 
-        // JWT의 iat/exp는 초 단위(NumericDate)라, 같은 유저에게 같은 초 안에
-        // 두 번 발급하면(예: 로그인 직후 바로 재발급) subject/iat/exp가 전부
-        // 같아져서 서명까지 완전히 동일한 토큰 문자열이 나옴 — Refresh Token
-        // Rotation의 "이전 토큰은 무효화"라는 전제 자체가 깨짐 (재발급했는데
-        // 새 토큰이 이전 토큰과 같은 값이 되는 문제, docs/troubleshooting-log.md
-        // 2026-07-13 참고). jti(고유 식별자)를 추가해 타이밍과 무관하게 항상
-        // 유니크한 토큰이 나오도록 보장
+        // jti(고유 식별자) 추가 — iat/exp가 초 단위라 같은 초에 재발급하면
+        // jti 없이는 이전 토큰과 완전히 동일한 문자열이 나올 수 있음
         return Jwts.builder()
                 .id(UUID.randomUUID().toString())  // jti — 토큰 고유 식별자
                 .subject(String.valueOf(userId))  // 토큰 주체 = userId
@@ -78,9 +71,7 @@ public class JwtProvider {
                     .build()
                     .parseSignedClaims(token);
 
-            // 서명·만료 검증을 통과해도 로그아웃으로 블랙리스트에 오른 토큰이면 무효 처리
-            // → REST(JwtAuthenticationFilter)/WebSocket(StompAuthInterceptor) 모두
-            //   이 메서드 하나만 거치므로, 여기 한 곳에 추가하면 양쪽 다 커버됨
+            // 블랙리스트 체크 — REST/WebSocket 둘 다 이 메서드 하나만 거치므로 여기 한 곳으로 충분
             if (tokenBlacklistService.isBlacklisted(token)) {
                 return false;
             }

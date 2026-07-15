@@ -10,20 +10,13 @@ import org.testcontainers.containers.MySQLContainer;
 import org.testcontainers.kafka.KafkaContainer;
 import org.testcontainers.utility.DockerImageName;
 
-// Kafka/Redis가 실제로 필요한 통합 테스트의 공통 베이스
-// → MySQL/Kafka/Redis 컨테이너를 static으로 선언하고 static 블록에서
-//   직접 start()하는 "진짜" 싱글턴 컨테이너 패턴 사용
-// → @Container + @Testcontainers 조합(JUnit5 확장이 자동으로 lifecycle
-//   관리)은 static 필드라도 "이 테스트 클래스가 끝나면 stop()"을 각
-//   서브클래스마다 개별로 실행함 — 여러 테스트 클래스가 상속받아 같이
-//   돌아가면 앞 클래스가 끝나면서 컨테이너를 내려버려 뒤 클래스가
-//   연결 실패(HikariPool 새 연결 타임아웃)를 겪는 문제가 있었음
-//   (docs/troubleshooting-log.md 2026-07-13 참고). @DynamicPropertySource로
-//   직접 연결 정보를 등록하면 JUnit5 lifecycle 관리를 아예 안 타서
-//   컨테이너가 전체 테스트 실행 동안(JVM 종료 시 Ryuk이 정리) 살아있음
-// → MinIO는 아직 컨테이너화하지 않음 — 이번 테스트 대상(메시지/알림/인증)과
-//   무관해서 MinioClient만 Mock으로 대체 (MinioBucketInitializer의
-//   @PostConstruct가 Mock 상대로는 예외 없이 조용히 지나감)
+// Kafka/Redis가 필요한 통합 테스트의 공통 베이스
+// → MySQL/Kafka/Redis 컨테이너를 static 블록에서 직접 start()하는 진짜 싱글턴 패턴 사용
+// → @Container+@Testcontainers 조합은 static 필드라도 서브클래스마다 lifecycle을
+//   관리해서, 여러 테스트 클래스가 이어서 돌 때 앞 클래스가 끝나며 컨테이너를
+//   내려버려 뒤 클래스가 연결 실패를 겪는 문제가 있었음 — @DynamicPropertySource로
+//   직접 등록하면 JUnit5 lifecycle 관리를 안 타서 전체 테스트 동안 살아있음
+// → MinIO는 이 테스트 대상(메시지/알림/인증)과 무관해 MinioClient만 Mock으로 대체
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
 public abstract class AbstractIntegrationTest {
 

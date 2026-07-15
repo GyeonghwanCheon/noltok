@@ -11,9 +11,7 @@ public record FriendRequestResponse(
         String status,
         LocalDate requestedAt
 ) {
-    // requestedAt은 updatedAt 기준
-    // → REJECTED row를 재사용(reopen)한 경우 createdAt은 최초 생성일 그대로라
-    //   "이번에 요청을 보낸 시점"을 정확히 표현하려면 updatedAt을 써야 함
+    // requestedAt은 updatedAt 기준 (reopen 시 createdAt은 최초 생성일 그대로라 정확한 시점 표현 불가)
     public static FriendRequestResponse of(Friend friend, String receiverNickname) {
         return new FriendRequestResponse(
                 friend.getId(),

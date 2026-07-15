@@ -11,9 +11,7 @@ import lombok.NoArgsConstructor;
         @Index(name = "idx_friends_requester_receiver", columnList = "requester_id, receiver_id"),
         @Index(name = "idx_friends_receiver_requester", columnList = "receiver_id, requester_id")
 })
-// findRelationBetween()이 (requesterId,receiverId) OR (receiverId,requesterId)
-// 형태의 양방향 조회라, 인덱스도 정방향/역방향 둘 다 있어야 각 OR 분기가
-// 인덱스를 탈 수 있음 (하나만 있으면 반대 방향 조회는 풀스캔됨)
+// findRelationBetween()이 양방향 OR 조회라 정방향/역방향 인덱스 둘 다 필요
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Friend extends BaseEntity {
@@ -24,8 +22,7 @@ public class Friend extends BaseEntity {
 
     @Column(name = "requester_id", nullable = false)
     private Long requesterId;
-    // requester/receiver는 userId만 저장 (User와 @ManyToOne 매핑 안 함)
-    // 이유: ChatRoom.createdBy와 동일한 이유로, 조회 시 User JOIN 불필요
+    // requester/receiver는 userId만 저장 — User JOIN 불필요
 
     @Column(name = "receiver_id", nullable = false)
     private Long receiverId;
@@ -44,9 +41,7 @@ public class Friend extends BaseEntity {
         return new Friend(requesterId, receiverId);
     }
 
-    // REJECTED 상태였던 관계를 새 요청으로 재사용할 때 사용
-    // → 새 row를 만들지 않고 기존 row를 갱신해 "관계당 1행" 원칙 유지
-    //   (docs/decision-log.md 2026-07-02 결정)
+    // REJECTED 상태였던 관계를 재사용 — 새 row 대신 기존 row 갱신 ("관계당 1행" 원칙)
     public void reopen(Long requesterId, Long receiverId) {
         this.requesterId = requesterId;
         this.receiverId = receiverId;

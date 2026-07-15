@@ -48,11 +48,7 @@ public class SecurityConfig {
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 
-                // 인증 안 된 요청의 응답 형식 — formLogin/httpBasic을 둘 다 껐기 때문에
-                // AuthenticationEntryPoint를 직접 안 넣으면 Spring Security 기본값인
-                // 403(Http403ForbiddenEntryPoint)이 나감. api-convention.md의
-                // "401 Unauthorized: 토큰 없음/만료/위변조" 기준에 맞춰 401로 통일
-                // (docs/troubleshooting-log.md 참고 — ControllerTest 작성 중 발견)
+                // formLogin/httpBasic을 껐기 때문에 기본값인 403 대신 401로 명시적으로 통일
                 .exceptionHandling(exception -> exception
                         .authenticationEntryPoint((request, response, authException) -> {
                             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
@@ -66,15 +62,12 @@ public class SecurityConfig {
                 // 경로별 인증 설정
                 .authorizeHttpRequests(auth -> auth
                         // CORS 프리플라이트(OPTIONS)는 항상 인증 없이 통과
-                        // → 실제 요청(POST/PATCH 등)만 이후 인증 검사를 받음
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers(
                                 "/api/v1/auth/signup",
                                 "/api/v1/auth/login",
                                 "/api/v1/auth/reissue",
-                                "/ws/**"
-                                // /ws/**: STOMP CONNECT 프레임에서 별도로 JWT를 검증하므로
-                                //         HTTP 핸드셰이크 단계에서는 인증을 요구하지 않음
+                                "/ws/**"  // STOMP CONNECT 프레임에서 별도로 JWT 검증
                         ).permitAll()
                         .anyRequest().authenticated()
                 )
@@ -92,7 +85,6 @@ public class SecurityConfig {
     }
 
     // 프론트엔드 배포 도메인이 아직 확정되지 않은 개발 단계라 패턴을 넓게 허용
-    // → WebSocketConfig.registerStompEndpoints()의 setAllowedOriginPatterns("*")와 동일한 기조
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();

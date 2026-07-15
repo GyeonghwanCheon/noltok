@@ -32,6 +32,7 @@ public class FriendController {
 
     private final FriendService friendService;
 
+    // 친구 요청 전송 API
     @PostMapping("/request")
     public ResponseEntity<ApiResponse<FriendRequestResponse>> sendRequest(
             @AuthenticationPrincipal UserDetails userDetails,
@@ -44,6 +45,7 @@ public class FriendController {
                 .body(ApiResponse.ok("친구 요청을 보냈습니다.", response));
     }
 
+    // 친구 요청 수락 API
     @PatchMapping("/{friendId}/accept")
     public ResponseEntity<ApiResponse<FriendAcceptResponse>> acceptRequest(
             @AuthenticationPrincipal UserDetails userDetails,
@@ -54,6 +56,7 @@ public class FriendController {
         return ResponseEntity.ok(ApiResponse.ok(response));
     }
 
+    // 친구 요청 거절 API
     @PatchMapping("/{friendId}/reject")
     public ResponseEntity<ApiResponse<FriendRejectResponse>> rejectRequest(
             @AuthenticationPrincipal UserDetails userDetails,
@@ -64,6 +67,7 @@ public class FriendController {
         return ResponseEntity.ok(ApiResponse.ok(response));
     }
 
+    // 친구 목록 조회 API
     @GetMapping
     public ResponseEntity<ApiResponse<FriendListResponse>> getFriends(
             @AuthenticationPrincipal UserDetails userDetails) {
@@ -73,6 +77,7 @@ public class FriendController {
         return ResponseEntity.ok(ApiResponse.ok(response));
     }
 
+    // 받은 친구 요청 목록 조회 API
     @GetMapping("/received")
     public ResponseEntity<ApiResponse<FriendReceivedListResponse>> getReceivedRequests(
             @AuthenticationPrincipal UserDetails userDetails) {
@@ -82,6 +87,7 @@ public class FriendController {
         return ResponseEntity.ok(ApiResponse.ok(response));
     }
 
+    // 보낸 친구 요청 목록 조회 API
     @GetMapping("/sent")
     public ResponseEntity<ApiResponse<FriendSentListResponse>> getSentRequests(
             @AuthenticationPrincipal UserDetails userDetails) {
@@ -91,6 +97,7 @@ public class FriendController {
         return ResponseEntity.ok(ApiResponse.ok(response));
     }
 
+    // 친구 삭제 API
     @DeleteMapping("/{friendId}")
     public ResponseEntity<ApiResponse<FriendDeleteResponse>> deleteFriend(
             @AuthenticationPrincipal UserDetails userDetails,
@@ -101,6 +108,7 @@ public class FriendController {
         return ResponseEntity.ok(ApiResponse.ok(response));
     }
 
+    // 친구 요청 취소 API
     @DeleteMapping("/{friendId}/cancel")
     public ResponseEntity<ApiResponse<FriendCancelResponse>> cancelRequest(
             @AuthenticationPrincipal UserDetails userDetails,

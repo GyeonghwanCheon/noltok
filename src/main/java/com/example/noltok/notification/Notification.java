@@ -10,8 +10,7 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "notifications",
         indexes = @Index(name = "idx_notifications_receiver_id_id", columnList = "receiver_id, id"))
-// receiver_id 기준 조회 + id 역순 정렬(커서 페이지네이션)이 사실상
-// 전부라, chat_messages와 동일한 이유로 우선순위 높음
+// receiver_id + id 역순(커서 페이지네이션) 조회가 사실상 전부라 우선순위 높음
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Notification {
@@ -22,9 +21,7 @@ public class Notification {
 
     @Column(name = "receiver_id", nullable = false)
     private Long receiverId;
-    // @ManyToOne 대신 receiverId만 저장
-    // → 알림 목록 조회는 이미 receiverId(로그인한 유저)를 알고 있는
-    //   상태에서 호출되므로 User 엔티티 자체가 필요하지 않음
+    // @ManyToOne 대신 receiverId만 저장 — User 엔티티가 따로 필요 없음
 
     @Enumerated(EnumType.STRING)
     @Column(name = "type", nullable = false, length = 20)
@@ -38,8 +35,7 @@ public class Notification {
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
-    // 알림은 수정 기능이 없는 불변 도메인(읽음 여부만 바뀜)이라
-    // BaseEntity(updatedAt 포함) 대신 createdAt만 직접 관리
+    // 알림은 읽음 여부만 바뀌는 불변 도메인이라 BaseEntity 대신 createdAt만 직접 관리
 
     private Notification(Long receiverId, NotificationType type, String content) {
         this.receiverId = receiverId;

@@ -10,8 +10,7 @@ public enum ErrorCode {
 
     //Auth
     INVALID_CREDENTIALS(HttpStatus.UNAUTHORIZED, "이메일 또는 비밀번호가 올바르지 않습니다."),
-    // Redis TTL이 만료를 자동 처리하므로 "없음"과 "만료됨"을 구분하지 않고
-    // 하나로 통합 (docs/decision-log.md 2026-07-09 참고)
+    // Redis TTL이 만료를 자동 처리 — "없음"과 "만료됨"을 구분하지 않고 통합
     INVALID_REFRESH_TOKEN(HttpStatus.UNAUTHORIZED, "유효하지 않은 Refresh Token입니다."),
     UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "인증이 필요합니다."),
 

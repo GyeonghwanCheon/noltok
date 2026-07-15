@@ -23,6 +23,7 @@ public class UserController {
 
     private final UserService userService;
 
+    // 내 정보 조회 API
     @GetMapping("/me")
     public ResponseEntity<ApiResponse<UserResponse>> getMyInfo(
             @AuthenticationPrincipal UserDetails userDetails) {
@@ -34,6 +35,7 @@ public class UserController {
     }
 
 
+    // 회원 정보 수정 API
     @PatchMapping("/me")
     public ResponseEntity<ApiResponse<UserResponse>> updateMyInfo(
             @AuthenticationPrincipal UserDetails userDetails,
@@ -46,6 +48,7 @@ public class UserController {
     }
 
 
+    // 비밀번호 변경 API
     @PatchMapping("/me/password")
     public ResponseEntity<ApiResponse<Void>> changePassword(
             @AuthenticationPrincipal UserDetails userDetails,
@@ -55,10 +58,7 @@ public class UserController {
         return ResponseEntity.ok(ApiResponse.ok("비밀번호를 변경하였습니다.", null));
     }
 
-    // 유저 검색
-    // @RequestParam 이유:
-    // → GET /api/v1/users?nickname=홍 형태로 쿼리 파라미터로 받음
-    // → @PathVariable은 /users/{nickname} 형태 → 검색어가 경로에 노출되어 부적절
+    // 유저 검색 API
     @GetMapping
     public ResponseEntity<ApiResponse<List<UserSummaryResponse>>> searchUsers(
             @AuthenticationPrincipal UserDetails userDetails,
@@ -68,10 +68,7 @@ public class UserController {
         return ResponseEntity.ok(ApiResponse.ok(response));
     }
 
-    // 유저 상세 조회
-    // @PathVariable 이유:
-    // → 특정 리소스(userId)를 식별하는 것이므로 경로에 포함하는 게 RESTful
-    // → GET /api/v1/users/1 형태
+    // 유저 상세 조회 API
     @GetMapping("/{userId}")
     public ResponseEntity<ApiResponse<UserSummaryResponse>> getUserDetail(
             @PathVariable Long userId) {
@@ -79,6 +76,7 @@ public class UserController {
         return ResponseEntity.ok(ApiResponse.ok(response));
     }
 
+    // 회원 탈퇴 API
     @DeleteMapping("/me")
     public ResponseEntity<ApiResponse<DeleteAccountResponse>> deleteMyAccount(
             @AuthenticationPrincipal UserDetails userDetails) {

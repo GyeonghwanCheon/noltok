@@ -28,14 +28,13 @@ public class SseEmitterRepository {
         emitter.onTimeout(() -> remove(userId, emitter));
         emitter.onError(e -> remove(userId, emitter));
 
-        // 연결 직후 더미 이벤트 전송 → 일부 프록시/브라우저의 응답 버퍼링으로 인한
-        // "연결 안 된 것처럼 보임" 문제 방지
+        // 연결 직후 더미 이벤트 전송 — 프록시/브라우저 버퍼링으로 "연결 안 됨"처럼 보이는 문제 방지
         sendToEmitter(emitter, "connected", "SSE 연결 성공");
 
         return emitter;
     }
 
-    // 특정 유저의 모든 연결에 이벤트 전송 (다음 단계인 Kafka Consumer가 호출할 자리)
+    // 특정 유저의 모든 연결에 이벤트 전송 (Kafka Consumer가 호출)
     public void send(Long userId, Object data) {
         List<SseEmitter> userEmitters = emitters.get(userId);
         if (userEmitters == null) {

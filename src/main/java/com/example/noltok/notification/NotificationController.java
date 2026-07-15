@@ -20,6 +20,7 @@ public class NotificationController {
     private final NotificationService notificationService;
     private final SseEmitterRepository sseEmitterRepository;
 
+    // 알림 목록 조회 API
     @GetMapping
     public ResponseEntity<ApiResponse<NotificationListResponse>> getNotifications(
             @AuthenticationPrincipal UserDetails userDetails,
@@ -30,6 +31,7 @@ public class NotificationController {
         return ResponseEntity.ok(ApiResponse.ok(response));
     }
 
+    // 알림 읽음 처리 API
     @PatchMapping("/{notificationId}/read")
     public ResponseEntity<ApiResponse<NotificationReadResponse>> markAsRead(
             @AuthenticationPrincipal UserDetails userDetails,
@@ -39,7 +41,7 @@ public class NotificationController {
         return ResponseEntity.ok(ApiResponse.ok(response));
     }
 
-    // "/subscribe"가 고정 경로라 "/{notificationId}/read"와 겹치지 않음 (세그먼트 개수가 다름)
+    // 실시간 알림 구독 API
     @GetMapping(value = "/subscribe", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter subscribe(@AuthenticationPrincipal UserDetails userDetails) {
         Long userId = Long.parseLong(userDetails.getUsername());

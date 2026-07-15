@@ -41,7 +41,6 @@ import static org.mockito.Mockito.lenient;
 // DB/Kafka/Redis 없이 순수 JVM에서 도는 단위 테스트 — Repository/Producer/캐시는 전부 Mock
 // getRoomDetail()/searchRooms()는 ChatRoomServiceN1RegressionTest(Testcontainers)에서
 // 쿼리 수 관점으로 이미 검증하고 있어 이 클래스에서는 다루지 않음
-// (docs/decision-log.md 2026-07-10 "통합 vs 단위 테스트 선택 기준" 참고)
 @ExtendWith(MockitoExtension.class)
 class ChatRoomServiceTest {
 

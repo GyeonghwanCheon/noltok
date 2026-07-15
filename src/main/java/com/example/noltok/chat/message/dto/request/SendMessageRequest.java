@@ -8,8 +8,7 @@ public record SendMessageRequest(
         @NotNull(message = "메시지 타입은 필수입니다.")
         ChatMessageType type,
 
-        // TEXT는 필수, FILE은 원본 파일명 용도(선택), IMAGE는 사용 안 함
-        // → 타입별 필수 여부가 달라 Bean Validation 대신 Service에서 검증
+        // 타입별 필수 여부가 달라 Bean Validation 대신 Service에서 검증
         String content,
 
         // IMAGE/FILE 타입일 때 필수, TEXT는 사용 안 함

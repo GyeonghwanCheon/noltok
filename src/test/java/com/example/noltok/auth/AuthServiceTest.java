@@ -117,8 +117,7 @@ class AuthServiceTest {
         // when
         LoginResponse response = authService.login(new LoginRequest("user@test.com", "password1"));
 
-        // then: Redis @Indexed 보조색인이 값 변경(rotate)을 못 지우는 문제 때문에
-        // 기존 토큰 유무와 무관하게 항상 deleteById() 후 새로 저장함
+        // then: 기존 토큰 유무와 무관하게 항상 deleteById() 후 새로 저장 (rotate()보다 의도가 명확해서 채택)
         assertThat(response.accessToken()).isEqualTo("access-token");
         assertThat(response.refreshToken()).isEqualTo("refresh-token");
         verify(refreshTokenRepository).deleteById(userId);

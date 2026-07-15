@@ -20,9 +20,7 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> 
     // 읽음 처리용: 방의 최신 메시지 1건 조회
     Optional<ChatMessage> findTopByRoomIdOrderByIdDesc(Long roomId);
 
-    // 여러 방의 마지막 메시지를 배치로 조회 (N+1 방지)
-    // → greatest-n-per-group 패턴: 방마다 가장 큰 id(=최신 메시지)만 골라 조회
-    //   (docs/optimization-log.md [4] 해결, 2026-07-09)
+    // 여러 방의 마지막 메시지 배치 조회 (N+1 방지, greatest-n-per-group 패턴)
     @Query("""
         SELECT cm FROM ChatMessage cm
         WHERE cm.id IN (

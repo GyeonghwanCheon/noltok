@@ -37,9 +37,7 @@ class AuthControllerTest extends ControllerTestSupport {
 
     @Autowired
     private MockMvc mockMvc;
-    // com.fasterxml.jackson.databind.ObjectMapper(Jackson 2)가 아니라
-    // tools.jackson.databind.ObjectMapper(Jackson 3) — Boot 4.1.0이 Jackson 3
-    // 기준으로 자동 설정하는 빈 타입이 이것 (docs/troubleshooting-log.md 참고)
+    // tools.jackson.databind.ObjectMapper(Jackson 3) — Boot 4.1.0의 실제 자동설정 빈 타입
     @Autowired
     private ObjectMapper objectMapper;
     @MockitoBean

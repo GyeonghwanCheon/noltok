@@ -13,10 +13,8 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-// Refresh Token 저장소가 Redis로 이전된 뒤(Phase 7) 실제 Redis를 대고
-// 검증하는 통합 테스트 — RefreshTokenRepository.deleteByUserId()가
-// 실제로는 삭제를 안 하던 버그(troubleshooting-log.md 2026-07-09)를
-// 이 테스트가 있었다면 자동으로 잡았을 것이라 회귀 방지 목적으로 추가
+// Refresh Token 저장소가 Redis로 이전된 뒤 실제 Redis로 검증하는 통합 테스트
+// — deleteByUserId()가 실제로는 삭제를 안 하던 버그의 회귀 방지 목적
 class AuthServiceRedisIntegrationTest extends AbstractIntegrationTest {
 
     @Autowired

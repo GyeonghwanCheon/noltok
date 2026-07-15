@@ -17,10 +17,7 @@ public interface ChatRoomMemberRepository extends JpaRepository<ChatRoomMember, 
     // 특정 유저가 특정 방의 활성 멤버인지 확인
     Optional<ChatRoomMember> findByChatRoomIdAndUserIdAndIsActiveTrue(Long roomId, Long userId);
 
-    // 특정 유저의 활성 채팅방 목록 조회
-    // → JOIN FETCH로 chatRoom을 함께 로딩해서, getMyRooms()에서
-    //   member.getChatRoom()에 접근할 때 방마다 추가 쿼리가 나가는 걸 방지
-    //   (docs/optimization-log.md [3] 해결, 2026-07-08)
+    // JOIN FETCH로 chatRoom 함께 로딩 — 방마다 추가 쿼리 나가는 것 방지
     @Query("""
         SELECT m FROM ChatRoomMember m
         JOIN FETCH m.chatRoom r
@@ -33,9 +30,7 @@ public interface ChatRoomMemberRepository extends JpaRepository<ChatRoomMember, 
     // 특정 방의 활성 멤버 수 조회
     int countByChatRoomIdAndIsActiveTrue(Long roomId);
 
-    // 검색된 채팅방 여러 개의 활성 멤버 수를 배치로 조회 (N+1 방지)
-    // → countUnreadMessagesByUserId()와 동일한 Projection+GROUP BY 패턴
-    //   (docs/optimization-log.md [2] 해결, 2026-07-08)
+    // 검색된 채팅방 여러 개의 활성 멤버 수를 배치 조회 (N+1 방지)
     @Query("""
         SELECT m.chatRoom.id AS roomId, COUNT(m) AS memberCount
         FROM ChatRoomMember m
@@ -45,19 +40,15 @@ public interface ChatRoomMemberRepository extends JpaRepository<ChatRoomMember, 
     """)
     List<RoomMemberCountProjection> countActiveMembersByChatRoomIds(@Param("roomIds") List<Long> roomIds);
 
-    // isActive 관계없이 멤버십 조회
-    // → 재입장 케이스 처리용
-    // → 나갔던 유저(isActive=false)의 멤버십을 찾아서 reactivate() 호출
+    // isActive 관계없이 조회 — 재입장 시 기존 멤버십 찾아 reactivate()
     Optional<ChatRoomMember> findByChatRoomIdAndUserId(Long roomId, Long userId);
 
-    // 채팅방 삭제 시 전체 활성 멤버 일괄 강제 퇴장
-    // → 멤버 수만큼 개별 UPDATE가 나가는 것을 피하기 위해 벌크 쿼리로 처리
+    // 채팅방 삭제 시 전체 활성 멤버 일괄 강제 퇴장 (벌크 쿼리)
     @Modifying
     @Query("UPDATE ChatRoomMember m SET m.isActive = false WHERE m.chatRoom.id = :roomId AND m.isActive = true")
     void deactivateAllByChatRoomId(@Param("roomId") Long roomId);
 
-    // 내 활성 채팅방 전체의 안읽은 메시지 수를 배치로 조회 (N+1 방지)
-    // → chat_room_members와 chat_messages를 조인해서 방마다 반복 쿼리하지 않고 한 번에 계산
+    // 내 활성 채팅방 전체의 안읽은 메시지 수 배치 조회 (N+1 방지)
     @Query("""
         SELECT m.chatRoom.id AS roomId, COUNT(cm.id) AS unreadCount
         FROM ChatRoomMember m, ChatMessage cm

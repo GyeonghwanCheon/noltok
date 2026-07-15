@@ -44,7 +44,7 @@ public class NotificationService {
             throw new BusinessException(ErrorCode.NOT_NOTIFICATION_OWNER);
         }
 
-        // 3. 읽음 처리 (이미 읽은 알림이어도 멱등하게 통과)
+        // 3. 읽음 처리
         notification.markAsRead();
 
         return NotificationReadResponse.of(notification.getId(), notification.isRead());

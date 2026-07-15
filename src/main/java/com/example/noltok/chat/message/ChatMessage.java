@@ -10,8 +10,7 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "chat_messages",
         indexes = @Index(name = "idx_chat_messages_room_id_id", columnList = "room_id, id"))
-// room_id 기준 조회 + id 역순 정렬(커서 페이지네이션, lastMessage 조회)이
-// 사실상 전부라, 무한 증가 테이블 중 우선순위가 가장 높음 (docs/optimization-log.md 참고)
+// room_id + id 역순(커서 페이지네이션) 조회가 사실상 전부라 우선순위 가장 높음
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class ChatMessage {
@@ -22,9 +21,7 @@ public class ChatMessage {
 
     @Column(name = "room_id", nullable = false)
     private Long roomId;
-    // @ManyToOne 대신 roomId만 저장
-    // → 메시지 조회는 이미 roomId를 알고 있는 상태에서 호출되므로
-    //   ChatRoom 엔티티 자체가 필요하지 않음, 불필요한 JOIN 방지
+    // @ManyToOne 대신 roomId만 저장 — ChatRoom 엔티티 불필요, JOIN 방지
 
     @Column(name = "sender_id", nullable = false)
     private Long senderId;
@@ -44,8 +41,7 @@ public class ChatMessage {
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
-    // 메시지는 수정 기능이 없는 불변 도메인이라 BaseEntity(updatedAt 포함)
-    // 대신 createdAt만 직접 관리
+    // 메시지는 수정 기능이 없는 불변 도메인이라 BaseEntity 대신 createdAt만 직접 관리
 
     private ChatMessage(Long roomId, Long senderId, ChatMessageType type, String content, String fileUrl) {
         this.roomId = roomId;
@@ -69,8 +65,7 @@ public class ChatMessage {
         return new ChatMessage(roomId, senderId, ChatMessageType.FILE, fileName, fileUrl);
     }
 
-    // 채팅방 목록의 lastMessage, 알림 content 등에서 공통으로 쓰는 타입별 미리보기 문구
-    // (카카오톡 등 채팅 리스트의 일반적인 관례)
+    // 채팅방 목록/알림에서 공통으로 쓰는 타입별 미리보기 문구
     public String toPreviewText() {
         return switch (type) {
             case TEXT -> content;

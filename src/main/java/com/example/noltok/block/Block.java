@@ -40,7 +40,7 @@ public class Block extends BaseEntity {
         return new Block(blockerId, blockedId);
     }
 
-    // 재차단 시 기존 row 재활성화 (Soft Delete 원칙, docs/decision-log.md 2026-07-02)
+    // 재차단 시 기존 row 재활성화 (Soft Delete 원칙)
     public void reactivate() {
         this.isActive = true;
     }

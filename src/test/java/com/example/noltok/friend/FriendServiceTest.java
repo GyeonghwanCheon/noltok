@@ -221,7 +221,7 @@ class FriendServiceTest {
         // when
         FriendDeleteResponse response = friendService.deleteFriend(userId, friendId);
 
-        // then: Soft Delete(isActive)가 아니라 실제 delete() 호출 (docs/decision-log.md 2026-07-02)
+        // then: Soft Delete(isActive)가 아니라 실제 delete() 호출
         assertThat(response.message()).contains("친구");
         verify(friendRepository, times(1)).delete(accepted);
     }

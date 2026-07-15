@@ -8,9 +8,7 @@ import java.util.List;
 
 public interface ChatRoomRepository extends JpaRepository<ChatRoom, Long> {
 
-    // OPEN/OPEN_PRIVATE 채팅방만 검색 (DIRECT, GROUP 제외)
-    // → DIRECT는 이름이 없고 private한 성격
-    // → GROUP은 초대제로 바뀌어서 검색해도 못 들어감 (docs/decision-log.md 2026-07-03)
+    // OPEN/OPEN_PRIVATE만 검색 — DIRECT는 이름 없음, GROUP은 초대제라 제외
     @Query("""
         SELECT r FROM ChatRoom r
         WHERE r.roomname LIKE %:roomname%
@@ -19,9 +17,7 @@ public interface ChatRoomRepository extends JpaRepository<ChatRoom, Long> {
     """)
     List<ChatRoom> searchByRoomname(@Param("roomname") String roomname);
 
-    // DIRECT 채팅방 중복 체크
-    // → 두 유저 간 DIRECT 방이 이미 있는지 확인
-    // → chat_room_members에서 두 userId가 모두 속한 DIRECT 방 조회
+    // 두 유저 간 기존 DIRECT 방 중복 체크
     @Query("""
         SELECT r FROM ChatRoom r
         WHERE r.type = 'DIRECT'

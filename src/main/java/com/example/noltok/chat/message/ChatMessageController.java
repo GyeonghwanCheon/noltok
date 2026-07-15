@@ -27,6 +27,7 @@ public class ChatMessageController {
     private final ChatMessageService chatMessageService;
     private final SimpMessagingTemplate simpMessagingTemplate;
 
+    // 채팅 메시지 전송 (STOMP)
     @MessageMapping("/rooms/{roomId}/messages")
     public void sendMessage(@DestinationVariable Long roomId,
                              @Payload SendMessageRequest request,
@@ -42,6 +43,7 @@ public class ChatMessageController {
         }
     }
 
+    // 채팅 메시지 목록 조회 API
     @GetMapping("/api/v1/chat/rooms/{roomId}/messages")
     @ResponseBody
     public ResponseEntity<ApiResponse<ChatMessageListResponse>> getMessages(

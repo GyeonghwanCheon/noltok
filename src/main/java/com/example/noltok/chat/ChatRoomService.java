@@ -106,10 +106,7 @@ public class ChatRoomService {
         return ChatRoomResponse.of(chatRoom, memberCount, ChatRoomRole.ADMIN);
     }
 
-    // 타입별 필수값 검증
-    // → roomname: DIRECT만 제외하고 전부 필수
-    // → nicknames: GROUP만 1명 이상 필수 (DIRECT는 validateDirectRoom에서 별도 체크)
-    // → password: OPEN_PRIVATE만 필수
+    // 타입별 필수값 검증 (roomname/nicknames/password)
     private void validateRoomFields(CreateRoomRequest request, List<String> nicknames) {
         if (request.type() != ChatRoomType.DIRECT &&
                 (request.roomname() == null || request.roomname().isBlank())) {
@@ -126,8 +123,7 @@ public class ChatRoomService {
         }
     }
 
-    // 초대자(userId) 기준 친구/차단 검증
-    // → 친구 검증을 먼저 해서, 친구가 아니면 차단 조회(추가 쿼리) 자체를 생략
+    // 친구 먼저 검증해서, 친구 아니면 차단 조회(추가 쿼리) 생략
     private void validateFriendAndBlock(Long userId, Long targetId) {
         boolean isFriend = friendRepository.findRelationBetween(userId, targetId)
                 .map(friend -> friend.getStatus() == FriendStatus.ACCEPTED)
@@ -142,7 +138,6 @@ public class ChatRoomService {
     }
 
     // 내 채팅방 목록 조회
-    // readOnly = true 이유: 조회만 하는 메서드, 변경감지 생략으로 성능 최적화
     @Transactional(readOnly = true)
     public ChatRoomListResponse getMyRooms(Long userId) {
 
@@ -166,9 +161,8 @@ public class ChatRoomService {
                 : chatMessageRepository.findLastMessagesByRoomIds(roomIds).stream()
                         .collect(Collectors.toMap(ChatMessage::getRoomId, cm -> cm));
 
-        // 4. 정렬 기준 시각(마지막 메시지 시각, 없으면 방 상태변경 시각) 기준으로
-        //    먼저 정렬 → DTO의 날짜만 남은 필드로 정렬하면 같은 날짜 안에서
-        //    시분초 정보가 사라지는 문제를 피하기 위해 원본 LocalDateTime으로 정렬
+        // 4. 마지막 메시지 시각(없으면 방 상태변경 시각) 기준 정렬 — 날짜만 남은
+        //    필드로 정렬하면 시분초 정보가 사라져서 원본 LocalDateTime으로 정렬
         List<ChatRoomMember> sortedMemberships = myMemberships.stream()
                 .sorted((a, b) -> sortKey(b, lastMessageMap).compareTo(sortKey(a, lastMessageMap)))
                 .toList();
@@ -184,14 +178,12 @@ public class ChatRoomService {
         return ChatRoomListResponse.of(rooms);
     }
 
-    // 채팅방 목록 정렬 기준 시각: 마지막 메시지가 있으면 그 시각, 없으면 방의
-    // 상태변경(생성 포함) 시각으로 폴백 → 빈 방도 생성 시각 기준으로 목록에 남음
+    // 마지막 메시지 시각, 없으면 방 상태변경(생성 포함) 시각으로 폴백
     private LocalDateTime sortKey(ChatRoomMember member, Map<Long, ChatMessage> lastMessageMap) {
         ChatMessage lastMessage = lastMessageMap.get(member.getChatRoom().getId());
         return lastMessage != null ? lastMessage.getCreatedAt() : member.getChatRoom().getUpdatedAt();
     }
 
-    // markAsRead() 메서드만 추가, 기존 코드 유지
     @Transactional
     public ChatRoomReadResponse markAsRead(Long userId, Long roomId) {
 
@@ -221,7 +213,6 @@ public class ChatRoomService {
     }
 
 
-    // getRoomDetail() 메서드만 추가, 기존 코드 유지
     @Transactional(readOnly = true)
     public ChatRoomDetailResponse getRoomDetail(Long userId, Long roomId) {
 
@@ -230,9 +221,7 @@ public class ChatRoomService {
                 .filter(ChatRoom::isActive)
                 .orElseThrow(() -> new BusinessException(ErrorCode.CHATROOM_NOT_FOUND));
 
-        // 2. 요청자가 멤버인지 확인
-        // → 채팅방 존재 확인 후에 멤버 체크하는 이유:
-        //   순서가 반대면 비멤버가 "채팅방이 존재하는지 여부"를 알 수 있음
+        // 2. 요청자가 멤버인지 확인 (존재 확인 먼저 — 순서 반대면 비멤버가 방 존재 여부를 알 수 있음)
         ChatRoomMember myMembership = chatRoomMemberRepository
                 .findByChatRoomIdAndUserIdAndIsActiveTrue(roomId, userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_CHATROOM_MEMBER));
@@ -241,9 +230,7 @@ public class ChatRoomService {
         List<ChatRoomMember> members = chatRoomMemberRepository
                 .findByChatRoomIdAndIsActiveTrue(roomId);
 
-        // 4. 각 멤버의 userId로 User 정보 일괄 조회
-        // → findAllById()로 한 번에 조회 후 Map으로 변환 (N+1 방지,
-        //   docs/optimization-log.md [1] 해결, 2026-07-08)
+        // 4. findAllById()로 일괄 조회 후 Map 변환 (N+1 방지)
         List<Long> userIds = members.stream().map(ChatRoomMember::getUserId).toList();
         Map<Long, User> userMap = userRepository.findAllById(userIds).stream()
                 .collect(Collectors.toMap(User::getId, user -> user));
@@ -255,15 +242,13 @@ public class ChatRoomService {
         return ChatRoomDetailResponse.of(chatRoom, myMembership, memberDtos);
     }
 
-    // searchRooms() 메서드만 추가, 기존 코드 유지
     @Transactional(readOnly = true)
     public ChatRoomSearchResponse searchRooms(String name) {
 
-        // 1. GROUP 채팅방 이름 부분일치 검색
+        // 1. OPEN/OPEN_PRIVATE 채팅방 이름 부분일치 검색
         List<ChatRoom> chatRooms = chatRoomRepository.searchByRoomname(name);
 
-        // 2. 검색된 채팅방들의 활성 멤버 수를 배치로 일괄 조회 (N+1 방지,
-        //    docs/optimization-log.md [2] 해결, 2026-07-08)
+        // 2. 검색된 채팅방들의 활성 멤버 수 배치 조회 (N+1 방지)
         List<Long> roomIds = chatRooms.stream().map(ChatRoom::getId).toList();
         Map<Long, Long> memberCountMap = roomIds.isEmpty()
                 ? Map.of()
@@ -277,9 +262,7 @@ public class ChatRoomService {
         return ChatRoomSearchResponse.of(rooms);
     }
 
-    // DIRECT 채팅방 전용 검증
-    // → 1명만 초대 가능
-    // → 이미 해당 유저와의 DIRECT 방이 있으면 중복 생성 불가
+    // DIRECT 전용 검증 — 1명만 초대 가능, 기존 DIRECT 방 있으면 중복 생성 불가
     private void validateDirectRoom(Long userId, List<String> nicknames) {
         if (nicknames.size() != 1) {
             throw new BusinessException(ErrorCode.INVALID_DIRECT_ROOM_MEMBER_COUNT);
@@ -297,7 +280,6 @@ public class ChatRoomService {
         }
     }
 
-    // joinRoom() 메서드만 추가, 기존 코드 유지
     @Transactional
     public ChatRoomJoinResponse joinRoom(Long userId, Long roomId, String password) {
 
@@ -307,7 +289,6 @@ public class ChatRoomService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.CHATROOM_NOT_FOUND));
 
         // 2. DIRECT/GROUP은 이 API로 입장 불가 (초대로만 참여 가능)
-        // → docs/decision-log.md 2026-07-03 결정
         if (chatRoom.getType() == ChatRoomType.DIRECT || chatRoom.getType() == ChatRoomType.GROUP) {
             throw new BusinessException(ErrorCode.CANNOT_SELF_JOIN_ROOM);
         }
@@ -349,7 +330,6 @@ public class ChatRoomService {
         return ChatRoomJoinResponse.of(roomId, ChatRoomRole.MEMBER.name(), user.getNickname());
     }
 
-    // inviteMembers() 메서드만 추가, 기존 코드 유지
     @Transactional
     public ChatRoomInviteResponse inviteMembers(Long userId, Long roomId, InviteMembersRequest request) {
 
@@ -428,7 +408,6 @@ public class ChatRoomService {
         return ChatRoomInviteResponse.of(roomId, invitedMemberDtos, request.nicknames());
     }
 
-    // kickMember() 메서드만 추가, 기존 코드 유지
     @Transactional
     public ChatRoomKickResponse kickMember(Long adminUserId, Long roomId, Long targetUserId) {
 
@@ -470,7 +449,6 @@ public class ChatRoomService {
         return ChatRoomKickResponse.of(roomId, targetUserId, targetUser.getNickname());
     }
 
-    // changeAdmin() 메서드만 추가, 기존 코드 유지
     @Transactional
     public ChatRoomAdminResponse changeAdmin(Long currentAdminUserId, Long roomId, ChangeAdminRequest request) {
 
@@ -516,7 +494,6 @@ public class ChatRoomService {
                 previousAdminUser.getNickname(), newAdminUser.getNickname());
     }
 
-    // leaveRoom() 메서드만 추가, 기존 코드 유지
     @Transactional
     public ChatRoomLeaveResponse leaveRoom(Long userId, Long roomId) {
 
@@ -561,7 +538,6 @@ public class ChatRoomService {
         return ChatRoomLeaveResponse.of(roomId, chatRoom.getRoomname());
     }
 
-    // deleteRoom() 메서드만 추가, 기존 코드 유지
     @Transactional
     public ChatRoomDeleteResponse deleteRoom(Long userId, Long roomId) {
 

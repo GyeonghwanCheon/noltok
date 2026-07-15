@@ -198,7 +198,7 @@ class ChatMessageServiceTest {
         // when
         ChatMessageListResponse response = chatMessageService.getMessages(userId, roomId, null, 20);
 
-        // then: 응답은 시간순(오래된 → 최신)이어야 함 (decision-log.md 2026-07-07)
+        // then: 응답은 시간순(오래된 → 최신)이어야 함
         assertThat(response.messages()).extracting("content")
                 .containsExactly("첫 번째로 보낸 메시지", "두 번째로 보낸 메시지", "세 번째로 보낸 메시지");
     }

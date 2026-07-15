@@ -35,10 +35,13 @@ public class AuthService {
     @Transactional
     public SignUpResponse signUp(SignUpRequest request) {
 
+        // 1. 이메일 중복 확인
         validateDuplicateEmail(request.email());
 
+        // 2. 비밀번호 암호화
         String encodedPassword = passwordEncoder.encode(request.password());
 
+        // 3. User 생성 및 저장
         User user = User.create(request.email(), encodedPassword, request.nickname());
         User savedUser = userRepository.save(user);
 
@@ -53,10 +56,7 @@ public class AuthService {
         User user = userRepository.findByEmail(request.email())
                 .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_CREDENTIALS));
 
-        // 2. 비밀번호 검증
-        // 이메일이 없을 때와 같은 에러메시지 사용
-        // 이유: "이메일이 없습니다" vs "비밀번호가 틀렸습니다"를 구분하면
-        //       공격자가 가입된 이메일 여부를 알 수 있음 (사용자 열거 공격 방지)
+        // 2. 비밀번호 검증 (이메일 오류와 동일한 메시지 — 사용자 열거 공격 방지)
         if (!passwordEncoder.matches(request.password(), user.getPassword())) {
             throw new BusinessException(ErrorCode.INVALID_CREDENTIALS);
         }
@@ -66,11 +66,6 @@ public class AuthService {
         String refreshToken = jwtProvider.generateRefreshToken(user.getId());
 
         // 4. Refresh Token 저장 — 기존 토큰이 있으면 삭제 후 새로 저장
-        // → "필드 값 변경 후 save()"(rotate) 대신 삭제 후 재생성 방식 사용.
-        //   실제 버그 원인은 Redis가 아니라 JwtProvider가 같은 초 안에서
-        //   동일한 토큰을 발급하던 문제였음(jti 추가로 해결, docs/
-        //   troubleshooting-log.md 2026-07-13 참고) — 다만 삭제 후 재생성이
-        //   "필드만 바꿔 save()"보다 의도가 더 명확해서 그대로 유지
         refreshTokenRepository.deleteById(user.getId());
         refreshTokenRepository.save(RefreshToken.create(user.getId(), refreshToken, refreshExpiration));
 
@@ -81,9 +76,7 @@ public class AuthService {
     @Transactional
     public LoginResponse reissue(ReissueRequest request) {
 
-        // 1. Refresh Token으로 조회
-        // → 만료된 토큰은 Redis TTL에 의해 이미 삭제된 상태라 여기서 자연히 걸러짐
-        //   (별도의 만료 여부 수동 체크가 필요 없음)
+        // 1. Refresh Token으로 조회 (만료된 토큰은 Redis TTL로 이미 삭제됨)
         RefreshToken refreshToken = refreshTokenRepository
                 .findByToken(request.refreshToken())
                 .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_REFRESH_TOKEN));
@@ -107,7 +100,6 @@ public class AuthService {
         refreshTokenRepository.deleteByUserId(userId);
 
         // 2. Access Token은 자체 만료까지 남은 시간만큼만 블랙리스트에 등록
-        //    (그 이상 남겨둘 필요 없음 — 이미 만료됐어야 할 시점 이후엔 어차피 무효)
         long remainingMillis = jwtProvider.getExpiration(accessToken).getTime() - System.currentTimeMillis();
         tokenBlacklistService.blacklist(accessToken, remainingMillis);
     }

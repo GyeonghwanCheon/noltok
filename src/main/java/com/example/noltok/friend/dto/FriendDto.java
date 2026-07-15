@@ -12,8 +12,7 @@ public record FriendDto(
         String profileImageUrl,
         LocalDate becameFriendAt
 ) {
-    // becameFriendAt은 updatedAt 기준
-    // → status가 ACCEPTED로 바뀐 시점(accept() 호출 시점)의 updatedAt
+    // becameFriendAt은 updatedAt 기준 (accept() 호출 시점)
     public static FriendDto of(Friend friend, User friendUser) {
         return new FriendDto(
                 friend.getId(),

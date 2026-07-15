@@ -21,6 +21,7 @@ public class ChatRoomController {
 
     private final ChatRoomService chatRoomService;
 
+    // 채팅방 생성 API
     @PostMapping
     public ResponseEntity<ApiResponse<ChatRoomResponse>> createRoom(
             @AuthenticationPrincipal UserDetails userDetails,
@@ -32,8 +33,7 @@ public class ChatRoomController {
                 .body(ApiResponse.ok("채팅방이 생성되었습니다.", response));
     }
 
-    // GET /api/v1/chat/rooms
-    // 채팅방 생성(POST)과 같은 경로지만 Method가 달라서 충돌 없음
+    // 내 채팅방 목록 조회 API
     @GetMapping
     public ResponseEntity<ApiResponse<ChatRoomListResponse>> getMyRooms(
             @AuthenticationPrincipal UserDetails userDetails) {
@@ -42,9 +42,7 @@ public class ChatRoomController {
         return ResponseEntity.ok(ApiResponse.ok(response));
     }
 
-    // /search가 /{roomId} 보다 먼저 선언되어야 함
-    // 이유: Spring은 경로를 위에서 아래로 매핑
-    //       /{roomId} 가 먼저 있으면 "search"를 roomId로 인식할 수 있음
+    // 채팅방 검색 API — /{roomId}보다 먼저 선언해야 "search"가 roomId로 인식되지 않음
     @GetMapping("/search")
     public ResponseEntity<ApiResponse<ChatRoomSearchResponse>> searchRooms(
             @RequestParam String name) {
@@ -52,6 +50,7 @@ public class ChatRoomController {
         return ResponseEntity.ok(ApiResponse.ok(response));
     }
 
+    // 채팅방 상세 조회 API
     @GetMapping("/{roomId}")
     public ResponseEntity<ApiResponse<ChatRoomDetailResponse>> getRoomDetail(
             @AuthenticationPrincipal UserDetails userDetails,
@@ -61,6 +60,7 @@ public class ChatRoomController {
         return ResponseEntity.ok(ApiResponse.ok(response));
     }
 
+    // 채팅방 입장 API
     @PostMapping("/{roomId}/join")
     public ResponseEntity<ApiResponse<ChatRoomJoinResponse>> joinRoom(
             @AuthenticationPrincipal UserDetails userDetails,
@@ -72,6 +72,7 @@ public class ChatRoomController {
         return ResponseEntity.ok(ApiResponse.ok(response));
     }
 
+    // 채팅방 멤버 초대 API
     @PostMapping("/{roomId}/members")
     public ResponseEntity<ApiResponse<ChatRoomInviteResponse>> inviteMembers(
             @AuthenticationPrincipal UserDetails userDetails,
@@ -82,6 +83,7 @@ public class ChatRoomController {
         return ResponseEntity.ok(ApiResponse.ok(response));
     }
 
+    // 채팅방 멤버 추방 API
     @DeleteMapping("/{roomId}/members/{targetUserId}")
     public ResponseEntity<ApiResponse<ChatRoomKickResponse>> kickMember(
             @AuthenticationPrincipal UserDetails userDetails,
@@ -92,6 +94,7 @@ public class ChatRoomController {
         return ResponseEntity.ok(ApiResponse.ok(response));
     }
 
+    // 채팅방 관리자 변경 API
     @PatchMapping("/{roomId}/admin")
     public ResponseEntity<ApiResponse<ChatRoomAdminResponse>> changeAdmin(
             @AuthenticationPrincipal UserDetails userDetails,
@@ -102,6 +105,7 @@ public class ChatRoomController {
         return ResponseEntity.ok(ApiResponse.ok(response));
     }
 
+    // 채팅방 나가기 API
     @DeleteMapping("/{roomId}/leave")
     public ResponseEntity<ApiResponse<ChatRoomLeaveResponse>> leaveRoom(
             @AuthenticationPrincipal UserDetails userDetails,
@@ -111,6 +115,7 @@ public class ChatRoomController {
         return ResponseEntity.ok(ApiResponse.ok(response));
     }
 
+    // 채팅방 삭제 API
     @DeleteMapping("/{roomId}")
     public ResponseEntity<ApiResponse<ChatRoomDeleteResponse>> deleteRoom(
             @AuthenticationPrincipal UserDetails userDetails,
@@ -120,6 +125,7 @@ public class ChatRoomController {
         return ResponseEntity.ok(ApiResponse.ok(response));
     }
 
+    // 채팅방 읽음 처리 API
     @PatchMapping("/{roomId}/read")
     public ResponseEntity<ApiResponse<ChatRoomReadResponse>> markAsRead(
             @AuthenticationPrincipal UserDetails userDetails,

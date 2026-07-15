@@ -9,9 +9,7 @@ import org.springframework.web.socket.messaging.SessionDisconnectEvent;
 
 import java.security.Principal;
 
-// STOMP DISCONNECT 프레임이 아닌 Spring의 세션 이벤트를 사용
-// → 브라우저를 그냥 닫거나 네트워크가 끊기는 등 클라이언트가 DISCONNECT
-//   프레임을 보낼 기회가 없는 경우에도 SessionDisconnectEvent는 항상 발행됨
+// STOMP DISCONNECT 대신 Spring 세션 이벤트 사용 — 브라우저를 그냥 닫아도 항상 발행됨
 @Component
 @RequiredArgsConstructor
 public class WebSocketPresenceListener {

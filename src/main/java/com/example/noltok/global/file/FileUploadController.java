@@ -17,6 +17,7 @@ public class FileUploadController {
 
     private final FileUploadService fileUploadService;
 
+    // 파일 업로드 API
     @PostMapping
     public ResponseEntity<ApiResponse<FileUploadResponse>> upload(
             @RequestParam("file") MultipartFile file) {

@@ -26,6 +26,7 @@ public class BlockController {
 
     private final BlockService blockService;
 
+    // 유저 차단 API
     @PostMapping
     public ResponseEntity<ApiResponse<BlockResponse>> blockUser(
             @AuthenticationPrincipal UserDetails userDetails,
@@ -38,6 +39,7 @@ public class BlockController {
                 .body(ApiResponse.ok(response));
     }
 
+    // 차단 목록 조회 API
     @GetMapping
     public ResponseEntity<ApiResponse<BlockListResponse>> getBlocks(
             @AuthenticationPrincipal UserDetails userDetails) {
@@ -47,6 +49,7 @@ public class BlockController {
         return ResponseEntity.ok(ApiResponse.ok(response));
     }
 
+    // 차단 해제 API
     @DeleteMapping("/{blockId}")
     public ResponseEntity<ApiResponse<BlockDeleteResponse>> unblockUser(
             @AuthenticationPrincipal UserDetails userDetails,

@@ -12,13 +12,12 @@ public record SignUpResponse(
         LocalDate createdAt
 
 ) {
-    // Entity → DTO 변환 책임을 DTO 스스로 갖도록 설계 (정적 팩토리 메서드)
     public static SignUpResponse from(User user) {
         return new SignUpResponse(
                 user.getId(),
                 user.getEmail(),
                 user.getNickname(),
-                user.getCreatedAt().toLocalDate()   // LocalDateTime → LocalDate 변환
+                user.getCreatedAt().toLocalDate()
         );
     }
 }

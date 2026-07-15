@@ -136,7 +136,7 @@ class BlockServiceTest {
 
     @Test
     void blockUser_친구관계가_REJECTED면_삭제하지_않는다() {
-        // given: 이미 끝난 관계라 이력 보존 (docs/decision-log.md 2026-07-03)
+        // given: 이미 끝난 관계라 이력 보존
         User target = testUser(targetId, "차단대상");
         Friend rejected = Friend.create(userId, targetId);
         rejected.reject();
@@ -186,7 +186,7 @@ class BlockServiceTest {
         // when
         BlockDeleteResponse response = blockService.unblockUser(userId, blockId);
 
-        // then: delete()가 아니라 deactivate()로 처리 (docs/decision-log.md 2026-07-02)
+        // then: delete()가 아니라 deactivate()로 처리
         assertThat(response.message()).contains("차단대상");
         assertThat(active.isActive()).isFalse();
         verify(blockRepository, never()).delete(any());

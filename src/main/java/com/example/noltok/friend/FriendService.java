@@ -66,10 +66,8 @@ public class FriendService {
         return FriendRequestResponse.of(friend, target.getNickname());
     }
 
-    // 기존 관계가 REJECTED면 재사용(PENDING으로 전환), PENDING/ACCEPTED면 중복 요청으로 차단
-    // → docs/decision-log.md 2026-07-02 결정
-    // → existing은 findRelationBetween()으로 조회된 영속 상태 엔티티라
-    //   reopen() 호출만으로 트랜잭션 커밋 시 자동 UPDATE (별도 save() 불필요)
+    // REJECTED면 재사용(PENDING 전환), 아니면 중복 요청으로 차단
+    // → existing은 영속 상태 엔티티라 reopen() 호출만으로 자동 UPDATE (save() 불필요)
     private Friend reuseIfRejected(Friend existing, Long requesterId, Long receiverId) {
         if (existing.getStatus() != FriendStatus.REJECTED) {
             throw new BusinessException(ErrorCode.FRIEND_REQUEST_ALREADY_EXISTS);
@@ -212,7 +210,7 @@ public class FriendService {
         User friendUser = userRepository.findById(friendUserId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
-        // 4. Hard Delete (docs/decision-log.md 2026-07-02 결정)
+        // 4. Hard Delete
         friendRepository.delete(friend);
 
         return FriendDeleteResponse.of(friendId, friendUser.getNickname());
@@ -238,7 +236,7 @@ public class FriendService {
         User receiver = userRepository.findById(friend.getReceiverId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
-        // 5. Hard Delete (친구 삭제와 동일 원칙, docs/decision-log.md 2026-07-02)
+        // 5. Hard Delete (친구 삭제와 동일 원칙)
         friendRepository.delete(friend);
 
         return FriendCancelResponse.of(friendId, receiver.getNickname());

@@ -43,6 +43,9 @@ out/
 __pycache__/
 *.pyc
 
+### 부하 테스트 (실제 JWT 액세스 토큰 포함) ###
+scripts/load_test_data.json
+
 ### AI project docs ###
 AGENTS.md
 CLAUDE.md

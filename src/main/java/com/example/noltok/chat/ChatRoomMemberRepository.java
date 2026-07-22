@@ -14,6 +14,9 @@ public interface ChatRoomMemberRepository extends JpaRepository<ChatRoomMember, 
     // 특정 방의 활성 멤버 전체 조회
     List<ChatRoomMember> findByChatRoomIdAndIsActiveTrue(Long roomId);
 
+    // 여러 방의 활성 멤버를 한 번에 배치 조회 (Kafka Consumer 배치 처리용, N+1 방지)
+    List<ChatRoomMember> findByChatRoomIdInAndIsActiveTrue(List<Long> roomIds);
+
     // 특정 유저가 특정 방의 활성 멤버인지 확인
     Optional<ChatRoomMember> findByChatRoomIdAndUserIdAndIsActiveTrue(Long roomId, Long userId);
 

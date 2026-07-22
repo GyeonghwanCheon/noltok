@@ -6,21 +6,25 @@ import com.example.noltok.chat.UnreadCountCacheService;
 import com.example.noltok.chat.message.ChatMessage;
 import com.example.noltok.chat.message.ChatMessageRepository;
 import com.example.noltok.chat.message.dto.response.ChatMessageResponse;
-import com.example.noltok.global.exception.BusinessException;
-import com.example.noltok.global.exception.ErrorCode;
 import com.example.noltok.global.presence.UserPresenceService;
 import com.example.noltok.notification.NotificationType;
 import com.example.noltok.notification.kafka.NotificationProducer;
 import com.example.noltok.user.User;
 import com.example.noltok.user.UserRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class ChatMessageConsumer {
@@ -37,36 +41,61 @@ public class ChatMessageConsumer {
             groupId = "chat-message-group",
             containerFactory = "chatMessageKafkaListenerContainerFactory")
     @Transactional
-    public void consume(ChatMessageEvent event) {
-        // 1. 타입별로 알맞은 팩토리 메서드로 DB 저장
-        ChatMessage message = switch (event.type()) {
-            case TEXT -> ChatMessage.createText(event.roomId(), event.senderId(), event.content());
-            case IMAGE -> ChatMessage.createImage(event.roomId(), event.senderId(), event.fileUrl());
-            case FILE -> ChatMessage.createFile(event.roomId(), event.senderId(), event.fileUrl(), event.content());
-        };
-        chatMessageRepository.save(message);
-
-        // 2. 발신자 닉네임 조회
-        User sender = userRepository.findById(event.senderId())
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-
-        // 3. 방 구독자 전원에게 브로드캐스트
-        ChatMessageResponse response = ChatMessageResponse.of(message, sender.getNickname());
-        simpMessagingTemplate.convertAndSend("/topic/rooms/" + event.roomId(), response);
-
-        // 4. 발신자를 제외한 방 활성 멤버 목록 (알림 필터링 + 캐시 무효화에 공통으로 사용)
-        List<Long> otherMemberIds = chatRoomMemberRepository.findByChatRoomIdAndIsActiveTrue(event.roomId()).stream()
-                .map(ChatRoomMember::getUserId)
-                .filter(userId -> !userId.equals(event.senderId()))
+    public void consume(List<ChatMessageEvent> events) {
+        // 1. 이벤트별로 알맞은 팩토리 메서드로 엔티티 생성 후 배치 저장
+        List<ChatMessage> messages = events.stream()
+                .map(event -> switch (event.type()) {
+                    case TEXT -> ChatMessage.createText(event.roomId(), event.senderId(), event.content());
+                    case IMAGE -> ChatMessage.createImage(event.roomId(), event.senderId(), event.fileUrl());
+                    case FILE -> ChatMessage.createFile(event.roomId(), event.senderId(), event.fileUrl(), event.content());
+                })
                 .toList();
+        List<ChatMessage> savedMessages = chatMessageRepository.saveAll(messages);
 
-        // 5. 오프라인인 멤버에게만 알림 발행 (온라인이면 이미 위 브로드캐스트로 실시간 수신 중)
-        String content = sender.getNickname() + ": " + message.toPreviewText();
-        otherMemberIds.stream()
-                .filter(userId -> !userPresenceService.isOnline(userId))
-                .forEach(userId -> notificationProducer.publish(userId, NotificationType.CHAT_MESSAGE, content));
+        // 2. 배치 내 발신자 중복 제거 후 배치 조회
+        List<Long> senderIds = events.stream().map(ChatMessageEvent::senderId).distinct().toList();
+        Map<Long, User> usersById = userRepository.findAllById(senderIds).stream()
+                .collect(Collectors.toMap(User::getId, user -> user));
 
-        // 6. 안읽은 수가 늘어난 멤버 전원의 캐시 무효화 (다음 조회 때 재계산됨)
-        otherMemberIds.forEach(unreadCountCacheService::invalidate);
+        // 3. 배치 내 방 중복 제거 후 활성 멤버 배치 조회
+        List<Long> roomIds = events.stream().map(ChatMessageEvent::roomId).distinct().toList();
+        Map<Long, List<Long>> memberIdsByRoom = chatRoomMemberRepository.findByChatRoomIdInAndIsActiveTrue(roomIds).stream()
+                .collect(Collectors.groupingBy(
+                        member -> member.getChatRoom().getId(),
+                        Collectors.mapping(ChatRoomMember::getUserId, Collectors.toList())));
+
+        // 4. 메시지별 브로드캐스트 + 오프라인 멤버 알림 발행 (배치 조회 결과 재사용, 개별 실패는 격리)
+        //    저장(1번)은 이미 끝났으므로, 후속 처리 실패가 메시지 유실로 이어지지 않게 예외를 여기서 흡수
+        Set<Long> unreadInvalidateTargets = new HashSet<>();
+        for (int i = 0; i < events.size(); i++) {
+            ChatMessageEvent event = events.get(i);
+            ChatMessage message = savedMessages.get(i);
+            try {
+                User sender = usersById.get(event.senderId());
+                if (sender == null) {
+                    throw new IllegalStateException("발신자를 찾을 수 없습니다: senderId=" + event.senderId());
+                }
+
+                ChatMessageResponse response = ChatMessageResponse.of(message, sender.getNickname());
+                simpMessagingTemplate.convertAndSend("/topic/rooms/" + event.roomId(), response);
+
+                List<Long> otherMemberIds = memberIdsByRoom.getOrDefault(event.roomId(), List.of()).stream()
+                        .filter(userId -> !userId.equals(event.senderId()))
+                        .toList();
+
+                String content = sender.getNickname() + ": " + message.toPreviewText();
+                otherMemberIds.stream()
+                        .filter(userId -> !userPresenceService.isOnline(userId))
+                        .forEach(userId -> notificationProducer.publish(userId, NotificationType.CHAT_MESSAGE, content));
+
+                unreadInvalidateTargets.addAll(otherMemberIds);
+            } catch (Exception e) {
+                log.error("채팅 메시지 후속 처리 실패 (roomId={}, senderId={}) - 저장은 완료됨, 브로드캐스트/알림만 건너뜀",
+                        event.roomId(), event.senderId(), e);
+            }
+        }
+
+        // 5. 배치 전체에서 중복 제거한 유저만 안읽음 캐시 무효화
+        unreadInvalidateTargets.forEach(unreadCountCacheService::invalidate);
     }
 }

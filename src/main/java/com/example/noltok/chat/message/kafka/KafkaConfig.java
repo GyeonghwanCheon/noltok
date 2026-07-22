@@ -42,6 +42,9 @@ public class KafkaConfig {
         config.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
         config.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
         config.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JacksonJsonSerializer.class);
+        // 메시지 유실 방지를 클라이언트 기본값이 아닌 설정으로 명시
+        config.put(ProducerConfig.ACKS_CONFIG, "all");
+        config.put(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG, true);
         return new DefaultKafkaProducerFactory<>(config);
     }
 
@@ -59,6 +62,8 @@ public class KafkaConfig {
         config.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, JacksonJsonDeserializer.class);
         config.put(JacksonJsonDeserializer.TRUSTED_PACKAGES, "com.example.noltok.chat.message.kafka");
         config.put(JacksonJsonDeserializer.VALUE_DEFAULT_TYPE, ChatMessageEvent.class.getName());
+        // 배치 하나당 최대 100건 — 너무 크면 배치 처리 시간이 길어져 리밸런스 위험, 너무 작으면 배치 효과 없음
+        config.put(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, 100);
         return new DefaultKafkaConsumerFactory<>(config);
     }
 
@@ -67,6 +72,8 @@ public class KafkaConfig {
         ConcurrentKafkaListenerContainerFactory<String, ChatMessageEvent> factory =
                 new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(chatMessageConsumerFactory());
+        // 리스너가 List<ChatMessageEvent>를 받도록 배치 모드로 전환
+        factory.setBatchListener(true);
         return factory;
     }
 }

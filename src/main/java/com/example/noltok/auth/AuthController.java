@@ -3,6 +3,8 @@ package com.example.noltok.auth;
 import com.example.noltok.auth.dto.LoginRequest;
 import com.example.noltok.auth.dto.LoginResponse;
 import com.example.noltok.auth.dto.ReissueRequest;
+import com.example.noltok.global.ratelimit.RateLimitKeyType;
+import com.example.noltok.global.ratelimit.RateLimited;
 import com.example.noltok.global.response.ApiResponse;
 import com.example.noltok.user.dto.request.SignUpRequest;
 import com.example.noltok.user.dto.response.SignUpResponse;
@@ -38,6 +40,7 @@ public class AuthController {
     }
 
     // 로그인 API
+    @RateLimited(action = "login", keyType = RateLimitKeyType.IP, limit = 5, windowSeconds = 60)
     @PostMapping("/login")
     public ResponseEntity<ApiResponse<LoginResponse>> login(
             @Valid @RequestBody LoginRequest request) {

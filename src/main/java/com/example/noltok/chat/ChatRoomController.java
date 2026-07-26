@@ -5,6 +5,8 @@ import com.example.noltok.chat.dto.request.CreateRoomRequest;
 import com.example.noltok.chat.dto.request.InviteMembersRequest;
 import com.example.noltok.chat.dto.request.JoinRoomRequest;
 import com.example.noltok.chat.dto.response.*;
+import com.example.noltok.global.ratelimit.RateLimitKeyType;
+import com.example.noltok.global.ratelimit.RateLimited;
 import com.example.noltok.global.response.ApiResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -61,6 +63,7 @@ public class ChatRoomController {
     }
 
     // 채팅방 입장 API
+    @RateLimited(action = "room-join", keyType = RateLimitKeyType.USER_AND_ROOM, limit = 5, windowSeconds = 60)
     @PostMapping("/{roomId}/join")
     public ResponseEntity<ApiResponse<ChatRoomJoinResponse>> joinRoom(
             @AuthenticationPrincipal UserDetails userDetails,

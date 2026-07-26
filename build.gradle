@@ -26,6 +26,12 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-validation'
     implementation 'org.springframework.boot:spring-boot-starter-webmvc'
     implementation 'org.springframework.boot:spring-boot-starter-websocket'
+
+    // AOP (Rate Limiting) — spring-boot-starter-aop가 이 Boot 버전엔 없어서
+    // (spring-boot-flyway와 동일하게 "starter" 없이 라이브러리 자체만 관리되는 케이스),
+    // aspectjweaver를 직접 명시. spring-boot-starter-data-jpa가 이미 전이
+    // 의존성으로 들여오고 있었지만, AOP가 실제로 필요하다는 걸 명시적으로 드러내기 위해 선언
+    implementation 'org.aspectj:aspectjweaver'
     compileOnly 'org.projectlombok:lombok'
     runtimeOnly 'com.mysql:mysql-connector-j'
     annotationProcessor 'org.projectlombok:lombok'

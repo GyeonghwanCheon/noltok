@@ -232,6 +232,20 @@ class UserServiceTest {
                 .isEqualTo(ErrorCode.USER_NOT_FOUND);
     }
 
+    @Test
+    void getUserDetail_탈퇴한_유저면_예외() {
+        // given: isActive=false인 탈퇴 유저 — findById()는 성공하지만 서비스에서 걸러내야 함
+        User deactivated = testUser(2L, "탈퇴한유저", "encoded-pw");
+        deactivated.deactivate();
+        given(userRepository.findById(2L)).willReturn(Optional.of(deactivated));
+
+        // when & then
+        assertThatThrownBy(() -> userService.getUserDetail(2L))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(ErrorCode.USER_NOT_FOUND);
+    }
+
     // ── deleteMyAccount() ──────────────────────────────────────
 
     @Test

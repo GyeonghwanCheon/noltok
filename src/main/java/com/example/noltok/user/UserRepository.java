@@ -17,8 +17,8 @@ public interface UserRepository extends JpaRepository<User, Long> {
     // 본인의 현재 닉네임은 중복 체크에서 제외
     boolean existsByNicknameAndIdNot(String nickname, Long id);
 
-    // 닉네임 부분일치 검색, 본인 제외
-    @Query("SELECT u FROM User u WHERE u.nickname LIKE %:nickname% AND u.id != :userId")
+    // 닉네임 부분일치 검색, 본인 제외, 탈퇴 유저 제외
+    @Query("SELECT u FROM User u WHERE u.nickname LIKE %:nickname% AND u.id != :userId AND u.isActive = true")
     List<User> searchByNicknameExcludingMe(
             @Param("nickname") String nickname,
             @Param("userId") Long userId

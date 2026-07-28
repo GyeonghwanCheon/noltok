@@ -92,6 +92,7 @@ public class UserService {
     @Transactional(readOnly = true)
     public UserSummaryResponse getUserDetail(Long targetUserId) {
         User user = userRepository.findById(targetUserId)
+                .filter(User::isActive)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
         return UserSummaryResponse.from(user);
     }

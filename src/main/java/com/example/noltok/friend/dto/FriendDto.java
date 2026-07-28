@@ -1,7 +1,7 @@
 package com.example.noltok.friend.dto;
 
 import com.example.noltok.friend.Friend;
-import com.example.noltok.user.User;
+import com.example.noltok.user.dto.UserProfileDto;
 
 import java.time.LocalDate;
 
@@ -13,12 +13,12 @@ public record FriendDto(
         LocalDate becameFriendAt
 ) {
     // becameFriendAt은 updatedAt 기준 (accept() 호출 시점)
-    public static FriendDto of(Friend friend, User friendUser) {
+    public static FriendDto of(Friend friend, UserProfileDto friendUser) {
         return new FriendDto(
                 friend.getId(),
-                friendUser.getId(),
-                friendUser.getNickname(),
-                friendUser.getProfileImageUrl(),
+                friendUser.userId(),
+                friendUser.nickname(),
+                friendUser.profileImageUrl(),
                 friend.getUpdatedAt().toLocalDate()
         );
     }

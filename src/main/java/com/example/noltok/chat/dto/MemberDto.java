@@ -1,7 +1,7 @@
 package com.example.noltok.chat.dto;
 
 import com.example.noltok.chat.ChatRoomMember;
-import com.example.noltok.user.User;
+import com.example.noltok.user.dto.UserProfileDto;
 
 public record MemberDto(
         Long userId,
@@ -9,12 +9,12 @@ public record MemberDto(
         String role,
         String profileImageUrl
 ) {
-    public static MemberDto of(ChatRoomMember member, User user) {
+    public static MemberDto of(ChatRoomMember member, UserProfileDto user) {
         return new MemberDto(
-                user.getId(),
-                user.getNickname(),
+                user.userId(),
+                user.nickname(),
                 member.getRole().name(),
-                user.getProfileImageUrl()
+                user.profileImageUrl()
         );
     }
 }

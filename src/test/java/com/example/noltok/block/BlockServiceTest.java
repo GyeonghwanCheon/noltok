@@ -10,7 +10,9 @@ import com.example.noltok.friend.FriendStatus;
 import com.example.noltok.global.exception.BusinessException;
 import com.example.noltok.global.exception.ErrorCode;
 import com.example.noltok.user.User;
+import com.example.noltok.user.UserProfileCacheService;
 import com.example.noltok.user.UserRepository;
+import com.example.noltok.user.dto.UserProfileDto;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -20,6 +22,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -39,6 +42,8 @@ class BlockServiceTest {
     private UserRepository userRepository;
     @Mock
     private FriendRepository friendRepository;
+    @Mock
+    private UserProfileCacheService userProfileCacheService;
 
     private BlockService blockService;
 
@@ -62,7 +67,7 @@ class BlockServiceTest {
 
     @BeforeEach
     void setUp() {
-        blockService = new BlockService(blockRepository, userRepository, friendRepository);
+        blockService = new BlockService(blockRepository, userRepository, friendRepository, userProfileCacheService);
     }
 
     // ── blockUser() ────────────────────────────────────────────
@@ -161,16 +166,17 @@ class BlockServiceTest {
         Block block1 = persistedBlock(blockId, userId, targetId, true);
         User blockedUser = testUser(targetId, "차단대상");
         given(blockRepository.findAllByBlockerIdAndIsActiveTrue(userId)).willReturn(List.of(block1));
-        given(userRepository.findAllById(List.of(targetId))).willReturn(List.of(blockedUser));
+        given(userProfileCacheService.getProfiles(List.of(targetId)))
+                .willReturn(Map.of(targetId, UserProfileDto.from(blockedUser)));
 
         // when
         BlockListResponse response = blockService.getBlocks(userId);
 
-        // then: 멤버 수만큼 findById를 반복하지 않고 findAllById 1번으로 처리 (N+1 방지)
+        // then: 멤버 수만큼 findById를 반복하지 않고 프로필 캐시 배치 조회 1번으로 처리 (N+1 방지)
         assertThat(response.blocks()).hasSize(1);
         assertThat(response.blocks().get(0).nickname()).isEqualTo("차단대상");
         verify(userRepository, never()).findById(any());
-        verify(userRepository).findAllById(List.of(targetId));
+        verify(userProfileCacheService).getProfiles(List.of(targetId));
     }
 
     // ── unblockUser() ──────────────────────────────────────────

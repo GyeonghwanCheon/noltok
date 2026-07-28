@@ -10,7 +10,9 @@ import com.example.noltok.friend.FriendStatus;
 import com.example.noltok.global.exception.BusinessException;
 import com.example.noltok.global.exception.ErrorCode;
 import com.example.noltok.user.User;
+import com.example.noltok.user.UserProfileCacheService;
 import com.example.noltok.user.UserRepository;
+import com.example.noltok.user.dto.UserProfileDto;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,6 +28,7 @@ public class BlockService {
     private final BlockRepository blockRepository;
     private final UserRepository userRepository;
     private final FriendRepository friendRepository;
+    private final UserProfileCacheService userProfileCacheService;
 
     @Transactional
     public BlockResponse blockUser(Long userId, BlockRequest request) {
@@ -74,13 +77,12 @@ public class BlockService {
                 .map(Block::getBlockedId)
                 .toList();
 
-        // 3. 대상 유저 정보 일괄 조회 (N+1 방지)
-        Map<Long, User> userMap = userRepository.findAllById(blockedIds).stream()
-                .collect(Collectors.toMap(User::getId, user -> user));
+        // 3. 대상 프로필 일괄 조회 (캐시, N+1 방지)
+        Map<Long, UserProfileDto> profileMap = userProfileCacheService.getProfiles(blockedIds);
 
         // 4. DTO 변환
         List<BlockDto> blocks = activeBlocks.stream()
-                .map(block -> BlockDto.of(block, userMap.get(block.getBlockedId())))
+                .map(block -> BlockDto.of(block, profileMap.get(block.getBlockedId())))
                 .toList();
 
         return BlockListResponse.of(blocks);

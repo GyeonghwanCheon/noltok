@@ -17,7 +17,9 @@ import com.example.noltok.global.exception.ErrorCode;
 import com.example.noltok.notification.NotificationType;
 import com.example.noltok.notification.kafka.NotificationProducer;
 import com.example.noltok.user.User;
+import com.example.noltok.user.UserProfileCacheService;
 import com.example.noltok.user.UserRepository;
+import com.example.noltok.user.dto.UserProfileDto;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -43,6 +45,7 @@ public class ChatRoomService {
     private final PasswordEncoder passwordEncoder;
     private final NotificationProducer notificationProducer;
     private final UnreadCountCacheService unreadCountCacheService;
+    private final UserProfileCacheService userProfileCacheService;
 
     @Transactional
     public ChatRoomResponse createRoom(Long userId, CreateRoomRequest request) {
@@ -230,13 +233,12 @@ public class ChatRoomService {
         List<ChatRoomMember> members = chatRoomMemberRepository
                 .findByChatRoomIdAndIsActiveTrue(roomId);
 
-        // 4. findAllById()로 일괄 조회 후 Map 변환 (N+1 방지)
+        // 4. 프로필 캐시로 일괄 조회 (캐시 히트/미스 모두 처리, N+1 방지)
         List<Long> userIds = members.stream().map(ChatRoomMember::getUserId).toList();
-        Map<Long, User> userMap = userRepository.findAllById(userIds).stream()
-                .collect(Collectors.toMap(User::getId, user -> user));
+        Map<Long, UserProfileDto> profileMap = userProfileCacheService.getProfiles(userIds);
 
         List<MemberDto> memberDtos = members.stream()
-                .map(member -> MemberDto.of(member, userMap.get(member.getUserId())))
+                .map(member -> MemberDto.of(member, profileMap.get(member.getUserId())))
                 .toList();
 
         return ChatRoomDetailResponse.of(chatRoom, myMembership, memberDtos);
@@ -393,7 +395,7 @@ public class ChatRoomService {
                 member = ChatRoomMember.create(chatRoom, invitedUser.getId(), ChatRoomRole.MEMBER);
                 chatRoomMemberRepository.save(member);
             }
-            invitedMemberDtos.add(MemberDto.of(member, invitedUser));
+            invitedMemberDtos.add(MemberDto.of(member, UserProfileDto.from(invitedUser)));
         }
 
         // 6. 초대된 유저 전원에게 채팅방 초대 알림 발행

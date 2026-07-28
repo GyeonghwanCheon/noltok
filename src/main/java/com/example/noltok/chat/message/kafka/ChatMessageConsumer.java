@@ -9,8 +9,8 @@ import com.example.noltok.chat.message.dto.response.ChatMessageResponse;
 import com.example.noltok.global.presence.UserPresenceService;
 import com.example.noltok.notification.NotificationType;
 import com.example.noltok.notification.kafka.NotificationProducer;
-import com.example.noltok.user.User;
-import com.example.noltok.user.UserRepository;
+import com.example.noltok.user.UserProfileCacheService;
+import com.example.noltok.user.dto.UserProfileDto;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -31,7 +31,7 @@ public class ChatMessageConsumer {
 
     private final ChatMessageRepository chatMessageRepository;
     private final ChatRoomMemberRepository chatRoomMemberRepository;
-    private final UserRepository userRepository;
+    private final UserProfileCacheService userProfileCacheService;
     private final SimpMessagingTemplate simpMessagingTemplate;
     private final UserPresenceService userPresenceService;
     private final NotificationProducer notificationProducer;
@@ -52,10 +52,9 @@ public class ChatMessageConsumer {
                 .toList();
         List<ChatMessage> savedMessages = chatMessageRepository.saveAll(messages);
 
-        // 2. 배치 내 발신자 중복 제거 후 배치 조회
+        // 2. 배치 내 발신자 중복 제거 후 프로필 캐시로 배치 조회
         List<Long> senderIds = events.stream().map(ChatMessageEvent::senderId).distinct().toList();
-        Map<Long, User> usersById = userRepository.findAllById(senderIds).stream()
-                .collect(Collectors.toMap(User::getId, user -> user));
+        Map<Long, UserProfileDto> profilesById = userProfileCacheService.getProfiles(senderIds);
 
         // 3. 배치 내 방 중복 제거 후 활성 멤버 배치 조회
         List<Long> roomIds = events.stream().map(ChatMessageEvent::roomId).distinct().toList();
@@ -71,19 +70,19 @@ public class ChatMessageConsumer {
             ChatMessageEvent event = events.get(i);
             ChatMessage message = savedMessages.get(i);
             try {
-                User sender = usersById.get(event.senderId());
+                UserProfileDto sender = profilesById.get(event.senderId());
                 if (sender == null) {
                     throw new IllegalStateException("발신자를 찾을 수 없습니다: senderId=" + event.senderId());
                 }
 
-                ChatMessageResponse response = ChatMessageResponse.of(message, sender.getNickname());
+                ChatMessageResponse response = ChatMessageResponse.of(message, sender.nickname());
                 simpMessagingTemplate.convertAndSend("/topic/rooms/" + event.roomId(), response);
 
                 List<Long> otherMemberIds = memberIdsByRoom.getOrDefault(event.roomId(), List.of()).stream()
                         .filter(userId -> !userId.equals(event.senderId()))
                         .toList();
 
-                String content = sender.getNickname() + ": " + message.toPreviewText();
+                String content = sender.nickname() + ": " + message.toPreviewText();
                 otherMemberIds.stream()
                         .filter(userId -> !userPresenceService.isOnline(userId))
                         .forEach(userId -> notificationProducer.publish(userId, NotificationType.CHAT_MESSAGE, content));

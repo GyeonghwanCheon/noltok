@@ -37,6 +37,8 @@ class UserServiceTest {
     private PasswordEncoder passwordEncoder;
     @Mock
     private RefreshTokenRepository refreshTokenRepository;
+    @Mock
+    private UserProfileCacheService userProfileCacheService;
 
     private UserService userService;
 
@@ -51,7 +53,7 @@ class UserServiceTest {
 
     @BeforeEach
     void setUp() {
-        userService = new UserService(userRepository, passwordEncoder, refreshTokenRepository);
+        userService = new UserService(userRepository, passwordEncoder, refreshTokenRepository, userProfileCacheService);
     }
 
     // ── getMyInfo() ────────────────────────────────────────────

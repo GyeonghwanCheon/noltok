@@ -12,6 +12,7 @@ import com.example.noltok.global.exception.ErrorCode;
 import com.example.noltok.notification.NotificationType;
 import com.example.noltok.notification.kafka.NotificationProducer;
 import com.example.noltok.user.User;
+import com.example.noltok.user.UserProfileCacheService;
 import com.example.noltok.user.UserRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -43,6 +44,8 @@ class FriendServiceTest {
     private BlockRepository blockRepository;
     @Mock
     private NotificationProducer notificationProducer;
+    @Mock
+    private UserProfileCacheService userProfileCacheService;
 
     private FriendService friendService;
 
@@ -70,7 +73,8 @@ class FriendServiceTest {
 
     @org.junit.jupiter.api.BeforeEach
     void setUp() {
-        friendService = new FriendService(friendRepository, userRepository, blockRepository, notificationProducer);
+        friendService = new FriendService(friendRepository, userRepository, blockRepository, notificationProducer,
+                userProfileCacheService);
     }
 
     // ── sendRequest() ──────────────────────────────────────────

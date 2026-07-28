@@ -18,7 +18,9 @@ import com.example.noltok.global.exception.ErrorCode;
 import com.example.noltok.notification.NotificationType;
 import com.example.noltok.notification.kafka.NotificationProducer;
 import com.example.noltok.user.User;
+import com.example.noltok.user.UserProfileCacheService;
 import com.example.noltok.user.UserRepository;
+import com.example.noltok.user.dto.UserProfileDto;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -35,6 +37,7 @@ public class FriendService {
     private final UserRepository userRepository;
     private final BlockRepository blockRepository;
     private final NotificationProducer notificationProducer;
+    private final UserProfileCacheService userProfileCacheService;
 
     @Transactional
     public FriendRequestResponse sendRequest(Long userId, FriendRequestRequest request) {
@@ -134,15 +137,14 @@ public class FriendService {
                 .map(f -> f.getRequesterId().equals(userId) ? f.getReceiverId() : f.getRequesterId())
                 .toList();
 
-        // 3. 상대방 유저 정보 일괄 조회 (N+1 방지, getRoomDetail()과 동일 패턴)
-        Map<Long, User> userMap = userRepository.findAllById(friendUserIds).stream()
-                .collect(Collectors.toMap(User::getId, user -> user));
+        // 3. 상대방 프로필 일괄 조회 (캐시, N+1 방지)
+        Map<Long, UserProfileDto> profileMap = userProfileCacheService.getProfiles(friendUserIds);
 
         // 4. DTO 변환
         List<FriendDto> friends = accepted.stream()
                 .map(f -> {
                     Long friendUserId = f.getRequesterId().equals(userId) ? f.getReceiverId() : f.getRequesterId();
-                    return FriendDto.of(f, userMap.get(friendUserId));
+                    return FriendDto.of(f, profileMap.get(friendUserId));
                 })
                 .toList();
 
@@ -159,13 +161,12 @@ public class FriendService {
                 .map(Friend::getRequesterId)
                 .toList();
 
-        // 3. 요청자 유저 정보 일괄 조회 (N+1 방지)
-        Map<Long, User> userMap = userRepository.findAllById(requesterIds).stream()
-                .collect(Collectors.toMap(User::getId, user -> user));
+        // 3. 요청자 프로필 일괄 조회 (캐시, N+1 방지)
+        Map<Long, UserProfileDto> profileMap = userProfileCacheService.getProfiles(requesterIds);
 
         // 4. DTO 변환
         List<ReceivedFriendRequestDto> requests = pending.stream()
-                .map(f -> ReceivedFriendRequestDto.of(f, userMap.get(f.getRequesterId())))
+                .map(f -> ReceivedFriendRequestDto.of(f, profileMap.get(f.getRequesterId())))
                 .toList();
 
         return FriendReceivedListResponse.of(requests);
@@ -181,13 +182,12 @@ public class FriendService {
                 .map(Friend::getReceiverId)
                 .toList();
 
-        // 3. 수신자 유저 정보 일괄 조회 (N+1 방지)
-        Map<Long, User> userMap = userRepository.findAllById(receiverIds).stream()
-                .collect(Collectors.toMap(User::getId, user -> user));
+        // 3. 수신자 프로필 일괄 조회 (캐시, N+1 방지)
+        Map<Long, UserProfileDto> profileMap = userProfileCacheService.getProfiles(receiverIds);
 
         // 4. DTO 변환
         List<SentFriendRequestDto> requests = pending.stream()
-                .map(f -> SentFriendRequestDto.of(f, userMap.get(f.getReceiverId())))
+                .map(f -> SentFriendRequestDto.of(f, profileMap.get(f.getReceiverId())))
                 .toList();
 
         return FriendSentListResponse.of(requests);

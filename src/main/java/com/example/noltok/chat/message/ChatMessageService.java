@@ -9,8 +9,8 @@ import com.example.noltok.chat.message.dto.response.ChatMessageResponse;
 import com.example.noltok.chat.message.kafka.ChatMessageProducer;
 import com.example.noltok.global.exception.BusinessException;
 import com.example.noltok.global.exception.ErrorCode;
-import com.example.noltok.user.User;
-import com.example.noltok.user.UserRepository;
+import com.example.noltok.user.UserProfileCacheService;
+import com.example.noltok.user.dto.UserProfileDto;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -22,7 +22,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -31,7 +30,7 @@ public class ChatMessageService {
     private final ChatMessageRepository chatMessageRepository;
     private final ChatRoomRepository chatRoomRepository;
     private final ChatRoomMemberRepository chatRoomMemberRepository;
-    private final UserRepository userRepository;
+    private final UserProfileCacheService userProfileCacheService;
     private final ChatMessageProducer chatMessageProducer;
 
     @Transactional(readOnly = true)
@@ -70,16 +69,15 @@ public class ChatMessageService {
                 ? chatMessageRepository.findByRoomIdOrderByIdDesc(roomId, pageable)
                 : chatMessageRepository.findByRoomIdAndIdLessThanOrderByIdDesc(roomId, cursor, pageable);
 
-        // 4. 발신자 정보 일괄 조회 (N+1 방지)
+        // 4. 발신자 프로필 캐시로 일괄 조회 (N+1 방지)
         List<Long> senderIds = slice.getContent().stream().map(ChatMessage::getSenderId).distinct().toList();
-        Map<Long, User> userMap = userRepository.findAllById(senderIds).stream()
-                .collect(Collectors.toMap(User::getId, u -> u));
+        Map<Long, UserProfileDto> profileMap = userProfileCacheService.getProfiles(senderIds);
 
         // 5. 오래된 순으로 뒤집어서 응답 구성
         List<ChatMessage> ascending = new ArrayList<>(slice.getContent());
         Collections.reverse(ascending);
         List<ChatMessageResponse> messages = ascending.stream()
-                .map(m -> ChatMessageResponse.of(m, userMap.get(m.getSenderId()).getNickname()))
+                .map(m -> ChatMessageResponse.of(m, profileMap.get(m.getSenderId()).nickname()))
                 .toList();
 
         return ChatMessageListResponse.of(messages, slice.hasNext());

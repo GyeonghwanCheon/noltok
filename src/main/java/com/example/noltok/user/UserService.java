@@ -22,6 +22,7 @@ public class UserService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final RefreshTokenRepository refreshTokenRepository;
+    private final UserProfileCacheService userProfileCacheService;
 
 
     // 내 정보 조회
@@ -47,6 +48,9 @@ public class UserService {
 
         // 3. Entity 변경 (JPA 변경감지로 자동 UPDATE, save() 호출 불필요)
         user.updateProfile(request.nickname(), request.profileImageUrl());
+
+        // 4. 프로필 캐시 무효화 (다음 조회 때 새 정보로 재캐싱됨)
+        userProfileCacheService.invalidate(userId);
 
         return UserResponse.from(user);
     }

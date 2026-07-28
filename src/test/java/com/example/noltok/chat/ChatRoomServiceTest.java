@@ -18,6 +18,7 @@ import com.example.noltok.global.exception.BusinessException;
 import com.example.noltok.global.exception.ErrorCode;
 import com.example.noltok.notification.kafka.NotificationProducer;
 import com.example.noltok.user.User;
+import com.example.noltok.user.UserProfileCacheService;
 import com.example.noltok.user.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -62,6 +63,8 @@ class ChatRoomServiceTest {
     private NotificationProducer notificationProducer;
     @Mock
     private UnreadCountCacheService unreadCountCacheService;
+    @Mock
+    private UserProfileCacheService userProfileCacheService;
 
     private ChatRoomService chatRoomService;
 
@@ -102,7 +105,7 @@ class ChatRoomServiceTest {
     void setUp() {
         chatRoomService = new ChatRoomService(chatRoomRepository, chatRoomMemberRepository, chatMessageRepository,
                 userRepository, friendRepository, blockRepository, passwordEncoder, notificationProducer,
-                unreadCountCacheService);
+                unreadCountCacheService, userProfileCacheService);
     }
 
     // ── createRoom() ───────────────────────────────────────────

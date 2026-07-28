@@ -1,7 +1,7 @@
 package com.example.noltok.friend.dto;
 
 import com.example.noltok.friend.Friend;
-import com.example.noltok.user.User;
+import com.example.noltok.user.dto.UserProfileDto;
 
 import java.time.LocalDate;
 
@@ -13,12 +13,12 @@ public record ReceivedFriendRequestDto(
         LocalDate requestedAt
 ) {
     // requestedAt은 updatedAt 기준 (친구 요청 전송 API와 동일 원칙)
-    public static ReceivedFriendRequestDto of(Friend friend, User requester) {
+    public static ReceivedFriendRequestDto of(Friend friend, UserProfileDto requester) {
         return new ReceivedFriendRequestDto(
                 friend.getId(),
-                requester.getId(),
-                requester.getNickname(),
-                requester.getProfileImageUrl(),
+                requester.userId(),
+                requester.nickname(),
+                requester.profileImageUrl(),
                 friend.getUpdatedAt().toLocalDate()
         );
     }

@@ -4,9 +4,12 @@ import com.example.noltok.chat.dto.response.ChatRoomDetailResponse;
 import com.example.noltok.chat.dto.response.ChatRoomSearchResponse;
 import com.example.noltok.friend.FriendRepository;
 import com.example.noltok.block.BlockRepository;
+import com.example.noltok.global.config.JpaAuditingConfig;
 import com.example.noltok.notification.kafka.NotificationProducer;
 import com.example.noltok.user.User;
+import com.example.noltok.user.UserProfileCacheService;
 import com.example.noltok.user.UserRepository;
+import com.example.noltok.user.dto.UserProfileDto;
 import jakarta.persistence.EntityManagerFactory;
 import org.hibernate.SessionFactory;
 import org.hibernate.stat.Statistics;
@@ -35,7 +38,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @Testcontainers
-@Import({ChatRoomService.class, ChatRoomServiceN1RegressionTest.TestConfig.class})
+@Import({ChatRoomService.class, JpaAuditingConfig.class, ChatRoomServiceN1RegressionTest.TestConfig.class})
 class ChatRoomServiceN1RegressionTest {
 
     @Container
@@ -77,6 +80,11 @@ class ChatRoomServiceN1RegressionTest {
     private BlockRepository blockRepository;
     @MockitoBean
     private UnreadCountCacheService unreadCountCacheService;
+    // 이 슬라이스 테스트는 MySQL만 띄우고 Redis가 없어서 실제 캐시는 못 씀 — 항상
+    // 캐시 미스인 것처럼 userRepository.findAllById()로 바로 위임(같은 세션이라
+    // Hibernate Statistics에 그대로 잡힘). 캐시 자체 동작은 UserProfileCacheServiceIntegrationTest에서 검증
+    @MockitoBean
+    private UserProfileCacheService userProfileCacheService;
 
     private Statistics statistics;
 
@@ -84,6 +92,13 @@ class ChatRoomServiceN1RegressionTest {
     void setUp() {
         statistics = entityManagerFactory.unwrap(SessionFactory.class).getStatistics();
         statistics.setStatisticsEnabled(true);
+
+        org.mockito.Mockito.lenient().when(userProfileCacheService.getProfiles(org.mockito.ArgumentMatchers.anyList()))
+                .thenAnswer(invocation -> {
+                    java.util.List<Long> ids = invocation.getArgument(0);
+                    return userRepository.findAllById(ids).stream()
+                            .collect(java.util.stream.Collectors.toMap(User::getId, UserProfileDto::from));
+                });
     }
 
     @Test

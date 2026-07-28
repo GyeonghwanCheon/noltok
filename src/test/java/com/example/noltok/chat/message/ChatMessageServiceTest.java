@@ -11,7 +11,8 @@ import com.example.noltok.chat.message.kafka.ChatMessageProducer;
 import com.example.noltok.global.exception.BusinessException;
 import com.example.noltok.global.exception.ErrorCode;
 import com.example.noltok.user.User;
-import com.example.noltok.user.UserRepository;
+import com.example.noltok.user.UserProfileCacheService;
+import com.example.noltok.user.dto.UserProfileDto;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -23,6 +24,7 @@ import org.springframework.data.domain.SliceImpl;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -45,7 +47,7 @@ class ChatMessageServiceTest {
     @Mock
     private ChatRoomMemberRepository chatRoomMemberRepository;
     @Mock
-    private UserRepository userRepository;
+    private UserProfileCacheService userProfileCacheService;
     @Mock
     private ChatMessageProducer chatMessageProducer;
 
@@ -75,7 +77,7 @@ class ChatMessageServiceTest {
     @BeforeEach
     void setUp() {
         chatMessageService = new ChatMessageService(chatMessageRepository, chatRoomRepository,
-                chatRoomMemberRepository, userRepository, chatMessageProducer);
+                chatRoomMemberRepository, userProfileCacheService, chatMessageProducer);
     }
 
     // ── sendMessage() ──────────────────────────────────────────
@@ -150,7 +152,8 @@ class ChatMessageServiceTest {
                 .willReturn(Optional.of(ChatRoomMember.create(activeRoom(roomId), userId, ChatRoomRole.MEMBER)));
         given(chatMessageRepository.findByRoomIdOrderByIdDesc(anyLong(), any(Pageable.class)))
                 .willReturn(new SliceImpl<>(List.of(message), PageRequest.of(0, 20), false));
-        given(userRepository.findAllById(List.of(userId))).willReturn(List.of(sender));
+        given(userProfileCacheService.getProfiles(List.of(userId)))
+                .willReturn(Map.of(userId, UserProfileDto.from(sender)));
 
         // when
         ChatMessageListResponse response = chatMessageService.getMessages(userId, roomId, null, 20);
@@ -171,7 +174,8 @@ class ChatMessageServiceTest {
                 .willReturn(Optional.of(ChatRoomMember.create(activeRoom(roomId), userId, ChatRoomRole.MEMBER)));
         given(chatMessageRepository.findByRoomIdAndIdLessThanOrderByIdDesc(eq(roomId), eq(5L), any(Pageable.class)))
                 .willReturn(new SliceImpl<>(List.of(message), PageRequest.of(0, 20), true));
-        given(userRepository.findAllById(List.of(userId))).willReturn(List.of(sender));
+        given(userProfileCacheService.getProfiles(List.of(userId)))
+                .willReturn(Map.of(userId, UserProfileDto.from(sender)));
 
         // when
         ChatMessageListResponse response = chatMessageService.getMessages(userId, roomId, 5L, 20);
@@ -193,7 +197,8 @@ class ChatMessageServiceTest {
                 .willReturn(Optional.of(ChatRoomMember.create(activeRoom(roomId), userId, ChatRoomRole.MEMBER)));
         given(chatMessageRepository.findByRoomIdOrderByIdDesc(anyLong(), any(Pageable.class)))
                 .willReturn(new SliceImpl<>(List.of(newest, middle, oldest), PageRequest.of(0, 20), false));
-        given(userRepository.findAllById(List.of(userId))).willReturn(List.of(sender));
+        given(userProfileCacheService.getProfiles(List.of(userId)))
+                .willReturn(Map.of(userId, UserProfileDto.from(sender)));
 
         // when
         ChatMessageListResponse response = chatMessageService.getMessages(userId, roomId, null, 20);

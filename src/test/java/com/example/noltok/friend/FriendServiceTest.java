@@ -9,6 +9,7 @@ import com.example.noltok.friend.dto.response.FriendRejectResponse;
 import com.example.noltok.friend.dto.response.FriendRequestResponse;
 import com.example.noltok.global.exception.BusinessException;
 import com.example.noltok.global.exception.ErrorCode;
+import com.example.noltok.friend.kafka.FriendDeletedProducer;
 import com.example.noltok.notification.NotificationType;
 import com.example.noltok.notification.kafka.NotificationProducer;
 import com.example.noltok.user.User;
@@ -46,6 +47,8 @@ class FriendServiceTest {
     private NotificationProducer notificationProducer;
     @Mock
     private UserProfileCacheService userProfileCacheService;
+    @Mock
+    private FriendDeletedProducer friendDeletedProducer;
 
     private FriendService friendService;
 
@@ -74,7 +77,7 @@ class FriendServiceTest {
     @org.junit.jupiter.api.BeforeEach
     void setUp() {
         friendService = new FriendService(friendRepository, userRepository, blockRepository, notificationProducer,
-                userProfileCacheService);
+                userProfileCacheService, friendDeletedProducer);
     }
 
     // ── sendRequest() ──────────────────────────────────────────
@@ -228,6 +231,7 @@ class FriendServiceTest {
         // then: Soft Delete(isActive)가 아니라 실제 delete() 호출
         assertThat(response.message()).contains("친구");
         verify(friendRepository, times(1)).delete(accepted);
+        verify(friendDeletedProducer).publish(accepted, userId);
     }
 
     @Test

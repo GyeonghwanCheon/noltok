@@ -15,6 +15,7 @@ import com.example.noltok.friend.dto.response.FriendRequestResponse;
 import com.example.noltok.friend.dto.response.FriendSentListResponse;
 import com.example.noltok.global.exception.BusinessException;
 import com.example.noltok.global.exception.ErrorCode;
+import com.example.noltok.friend.kafka.FriendDeletedProducer;
 import com.example.noltok.notification.NotificationType;
 import com.example.noltok.notification.kafka.NotificationProducer;
 import com.example.noltok.user.User;
@@ -38,6 +39,7 @@ public class FriendService {
     private final BlockRepository blockRepository;
     private final NotificationProducer notificationProducer;
     private final UserProfileCacheService userProfileCacheService;
+    private final FriendDeletedProducer friendDeletedProducer;
 
     @Transactional
     public FriendRequestResponse sendRequest(Long userId, FriendRequestRequest request) {
@@ -212,6 +214,10 @@ public class FriendService {
 
         // 4. Hard Delete
         friendRepository.delete(friend);
+
+        // 5. Hard Delete라 이력이 안 남는 걸 보완 — friend.deleted 이벤트 발행
+        //    (별도 이력 파이프라인에 저장됨, optimization-log.md [9] 참고)
+        friendDeletedProducer.publish(friend, userId);
 
         return FriendDeleteResponse.of(friendId, friendUser.getNickname());
     }

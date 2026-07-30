@@ -10,6 +10,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -50,7 +51,9 @@ class FriendDeletedConsumerIntegrationTest extends AbstractIntegrationTest {
             assertThat(saved.getRequesterId()).isEqualTo(1L);
             assertThat(saved.getReceiverId()).isEqualTo(2L);
             assertThat(saved.getDeletedBy()).isEqualTo(1L);
-            assertThat(saved.getFriendSince()).isEqualTo(friendSince);
+            // DB 컬럼이 datetime(6)이라 마이크로초까지만 저장됨 — 원본과 같은 정밀도로 잘라서 비교
+            // (그대로 비교하면 나노초 단위 클럭 노이즈 때문에 리눅스 환경에서만 실패함)
+            assertThat(saved.getFriendSince()).isEqualTo(friendSince.truncatedTo(ChronoUnit.MICROS));
         });
     }
 }

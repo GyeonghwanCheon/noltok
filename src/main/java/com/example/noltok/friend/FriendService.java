@@ -23,6 +23,9 @@ import com.example.noltok.user.UserProfileCacheService;
 import com.example.noltok.user.UserRepository;
 import com.example.noltok.user.dto.UserProfileDto;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Slice;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -130,9 +133,13 @@ public class FriendService {
     }
 
     @Transactional(readOnly = true)
-    public FriendListResponse getFriends(Long userId) {
-        // 1. status=ACCEPTED, 내가 포함된 관계 전부 조회
-        List<Friend> accepted = friendRepository.findAllAcceptedByUserId(userId);
+    public FriendListResponse getFriends(Long userId, Long cursor, int size) {
+        // 1. status=ACCEPTED, 내가 포함된 관계를 커서 기반으로 조회 (id DESC)
+        Pageable pageable = PageRequest.of(0, size);
+        Slice<Friend> slice = cursor == null
+                ? friendRepository.findAllAcceptedByUserIdOrderByIdDesc(userId, pageable)
+                : friendRepository.findAllAcceptedByUserIdAndIdLessThanOrderByIdDesc(userId, cursor, pageable);
+        List<Friend> accepted = slice.getContent();
 
         // 2. 각 관계에서 상대방 userId 추출 (requester/receiver 중 내가 아닌 쪽)
         List<Long> friendUserIds = accepted.stream()
@@ -150,13 +157,18 @@ public class FriendService {
                 })
                 .toList();
 
-        return FriendListResponse.of(friends);
+        return FriendListResponse.of(friends, slice.hasNext());
     }
 
     @Transactional(readOnly = true)
-    public FriendReceivedListResponse getReceivedRequests(Long userId) {
-        // 1. status=PENDING, receiverId=userId인 요청 전부 조회
-        List<Friend> pending = friendRepository.findAllByReceiverIdAndStatus(userId, FriendStatus.PENDING);
+    public FriendReceivedListResponse getReceivedRequests(Long userId, Long cursor, int size) {
+        // 1. status=PENDING, receiverId=userId인 요청을 커서 기반으로 조회 (id DESC)
+        Pageable pageable = PageRequest.of(0, size);
+        Slice<Friend> slice = cursor == null
+                ? friendRepository.findByReceiverIdAndStatusOrderByIdDesc(userId, FriendStatus.PENDING, pageable)
+                : friendRepository.findByReceiverIdAndStatusAndIdLessThanOrderByIdDesc(
+                        userId, FriendStatus.PENDING, cursor, pageable);
+        List<Friend> pending = slice.getContent();
 
         // 2. 요청자 userId 목록 추출
         List<Long> requesterIds = pending.stream()
@@ -171,13 +183,18 @@ public class FriendService {
                 .map(f -> ReceivedFriendRequestDto.of(f, profileMap.get(f.getRequesterId())))
                 .toList();
 
-        return FriendReceivedListResponse.of(requests);
+        return FriendReceivedListResponse.of(requests, slice.hasNext());
     }
 
     @Transactional(readOnly = true)
-    public FriendSentListResponse getSentRequests(Long userId) {
-        // 1. status=PENDING, requesterId=userId인 요청 전부 조회
-        List<Friend> pending = friendRepository.findAllByRequesterIdAndStatus(userId, FriendStatus.PENDING);
+    public FriendSentListResponse getSentRequests(Long userId, Long cursor, int size) {
+        // 1. status=PENDING, requesterId=userId인 요청을 커서 기반으로 조회 (id DESC)
+        Pageable pageable = PageRequest.of(0, size);
+        Slice<Friend> slice = cursor == null
+                ? friendRepository.findByRequesterIdAndStatusOrderByIdDesc(userId, FriendStatus.PENDING, pageable)
+                : friendRepository.findByRequesterIdAndStatusAndIdLessThanOrderByIdDesc(
+                        userId, FriendStatus.PENDING, cursor, pageable);
+        List<Friend> pending = slice.getContent();
 
         // 2. 수신자 userId 목록 추출
         List<Long> receiverIds = pending.stream()
@@ -192,7 +209,7 @@ public class FriendService {
                 .map(f -> SentFriendRequestDto.of(f, profileMap.get(f.getReceiverId())))
                 .toList();
 
-        return FriendSentListResponse.of(requests);
+        return FriendSentListResponse.of(requests, slice.hasNext());
     }
 
     @Transactional

@@ -26,7 +26,9 @@ import java.time.LocalDate;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.BDDMockito.given;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -110,7 +112,7 @@ class FriendControllerTest extends ControllerTestSupport {
     @Test
     void 친구목록조회_정상_요청시_200을_응답한다() throws Exception {
         // given
-        given(friendService.getFriends(1L)).willReturn(FriendListResponse.of(List.of()));
+        given(friendService.getFriends(anyLong(), isNull(), anyInt())).willReturn(FriendListResponse.of(List.of(), false));
 
         // when & then
         mockMvc.perform(get("/api/v1/friends")
@@ -122,7 +124,8 @@ class FriendControllerTest extends ControllerTestSupport {
     @Test
     void 받은요청목록조회_정상_요청시_200을_응답한다() throws Exception {
         // given
-        given(friendService.getReceivedRequests(1L)).willReturn(FriendReceivedListResponse.of(List.of()));
+        given(friendService.getReceivedRequests(anyLong(), isNull(), anyInt()))
+                .willReturn(FriendReceivedListResponse.of(List.of(), false));
 
         // when & then
         mockMvc.perform(get("/api/v1/friends/received")
@@ -134,7 +137,8 @@ class FriendControllerTest extends ControllerTestSupport {
     @Test
     void 보낸요청목록조회_정상_요청시_200을_응답한다() throws Exception {
         // given
-        given(friendService.getSentRequests(1L)).willReturn(FriendSentListResponse.of(List.of()));
+        given(friendService.getSentRequests(anyLong(), isNull(), anyInt()))
+                .willReturn(FriendSentListResponse.of(List.of(), false));
 
         // when & then
         mockMvc.perform(get("/api/v1/friends/sent")

@@ -15,18 +15,24 @@ import com.example.noltok.notification.kafka.NotificationProducer;
 import com.example.noltok.user.User;
 import com.example.noltok.user.UserProfileCacheService;
 import com.example.noltok.user.UserRepository;
+import com.example.noltok.user.dto.UserProfileDto;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.SliceImpl;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -213,6 +219,89 @@ class FriendServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .extracting(e -> ((BusinessException) e).getErrorCode())
                 .isEqualTo(ErrorCode.FRIEND_REQUEST_ALREADY_PROCESSED);
+    }
+
+    // ── getFriends() ───────────────────────────────────────────
+
+    @Test
+    void getFriends_커서없이_조회하면_첫페이지를_요청하고_hasNext를_그대로_반환한다() {
+        // given
+        Friend accepted = persistedFriend(friendId, userId, targetId, FriendStatus.ACCEPTED);
+        User friendUser = testUser(targetId, "친구닉네임");
+        given(friendRepository.findAllAcceptedByUserIdOrderByIdDesc(eq(userId), any(PageRequest.class)))
+                .willReturn(new SliceImpl<>(List.of(accepted), PageRequest.of(0, 20), true));
+        given(userProfileCacheService.getProfiles(List.of(targetId)))
+                .willReturn(Map.of(targetId, UserProfileDto.from(friendUser)));
+
+        // when
+        var response = friendService.getFriends(userId, null, 20);
+
+        // then
+        assertThat(response.friends()).hasSize(1);
+        assertThat(response.friends().get(0).nickname()).isEqualTo("친구닉네임");
+        assertThat(response.hasNext()).isTrue();
+        assertThat(response.nextCursor()).isEqualTo(friendId);
+        verify(friendRepository, never()).findAllAcceptedByUserIdAndIdLessThanOrderByIdDesc(any(), any(), any());
+    }
+
+    @Test
+    void getFriends_커서가_있으면_그보다_이전_관계를_조회한다() {
+        // given
+        Friend accepted = persistedFriend(50L, userId, targetId, FriendStatus.ACCEPTED);
+        User friendUser = testUser(targetId, "친구닉네임");
+        given(friendRepository.findAllAcceptedByUserIdAndIdLessThanOrderByIdDesc(eq(userId), eq(100L), any(PageRequest.class)))
+                .willReturn(new SliceImpl<>(List.of(accepted), PageRequest.of(0, 20), false));
+        given(userProfileCacheService.getProfiles(List.of(targetId)))
+                .willReturn(Map.of(targetId, UserProfileDto.from(friendUser)));
+
+        // when
+        var response = friendService.getFriends(userId, 100L, 20);
+
+        // then
+        assertThat(response.hasNext()).isFalse();
+        verify(friendRepository, never()).findAllAcceptedByUserIdOrderByIdDesc(any(), any());
+    }
+
+    // ── getReceivedRequests() ──────────────────────────────────
+
+    @Test
+    void getReceivedRequests_커서없이_조회하면_첫페이지를_반환한다() {
+        // given
+        Friend pending = persistedFriend(friendId, targetId, userId, FriendStatus.PENDING);
+        User requester = testUser(targetId, "요청자닉네임");
+        given(friendRepository.findByReceiverIdAndStatusOrderByIdDesc(eq(userId), eq(FriendStatus.PENDING), any(PageRequest.class)))
+                .willReturn(new SliceImpl<>(List.of(pending), PageRequest.of(0, 20), false));
+        given(userProfileCacheService.getProfiles(List.of(targetId)))
+                .willReturn(Map.of(targetId, UserProfileDto.from(requester)));
+
+        // when
+        var response = friendService.getReceivedRequests(userId, null, 20);
+
+        // then
+        assertThat(response.requests()).hasSize(1);
+        assertThat(response.requests().get(0).requesterNickname()).isEqualTo("요청자닉네임");
+        assertThat(response.hasNext()).isFalse();
+    }
+
+    // ── getSentRequests() ──────────────────────────────────────
+
+    @Test
+    void getSentRequests_커서없이_조회하면_첫페이지를_반환한다() {
+        // given
+        Friend pending = persistedFriend(friendId, userId, targetId, FriendStatus.PENDING);
+        User receiver = testUser(targetId, "수신자닉네임");
+        given(friendRepository.findByRequesterIdAndStatusOrderByIdDesc(eq(userId), eq(FriendStatus.PENDING), any(PageRequest.class)))
+                .willReturn(new SliceImpl<>(List.of(pending), PageRequest.of(0, 20), false));
+        given(userProfileCacheService.getProfiles(List.of(targetId)))
+                .willReturn(Map.of(targetId, UserProfileDto.from(receiver)));
+
+        // when
+        var response = friendService.getSentRequests(userId, null, 20);
+
+        // then
+        assertThat(response.requests()).hasSize(1);
+        assertThat(response.requests().get(0).receiverNickname()).isEqualTo("수신자닉네임");
+        assertThat(response.hasNext()).isFalse();
     }
 
     // ── deleteFriend() ─────────────────────────────────────────

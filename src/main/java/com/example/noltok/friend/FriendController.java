@@ -23,6 +23,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -70,30 +71,36 @@ public class FriendController {
     // 친구 목록 조회 API
     @GetMapping
     public ResponseEntity<ApiResponse<FriendListResponse>> getFriends(
-            @AuthenticationPrincipal UserDetails userDetails) {
+            @AuthenticationPrincipal UserDetails userDetails,
+            @RequestParam(required = false) Long cursor,
+            @RequestParam(defaultValue = "20") int size) {
 
         Long userId = Long.parseLong(userDetails.getUsername());
-        FriendListResponse response = friendService.getFriends(userId);
+        FriendListResponse response = friendService.getFriends(userId, cursor, size);
         return ResponseEntity.ok(ApiResponse.ok(response));
     }
 
     // 받은 친구 요청 목록 조회 API
     @GetMapping("/received")
     public ResponseEntity<ApiResponse<FriendReceivedListResponse>> getReceivedRequests(
-            @AuthenticationPrincipal UserDetails userDetails) {
+            @AuthenticationPrincipal UserDetails userDetails,
+            @RequestParam(required = false) Long cursor,
+            @RequestParam(defaultValue = "20") int size) {
 
         Long userId = Long.parseLong(userDetails.getUsername());
-        FriendReceivedListResponse response = friendService.getReceivedRequests(userId);
+        FriendReceivedListResponse response = friendService.getReceivedRequests(userId, cursor, size);
         return ResponseEntity.ok(ApiResponse.ok(response));
     }
 
     // 보낸 친구 요청 목록 조회 API
     @GetMapping("/sent")
     public ResponseEntity<ApiResponse<FriendSentListResponse>> getSentRequests(
-            @AuthenticationPrincipal UserDetails userDetails) {
+            @AuthenticationPrincipal UserDetails userDetails,
+            @RequestParam(required = false) Long cursor,
+            @RequestParam(defaultValue = "20") int size) {
 
         Long userId = Long.parseLong(userDetails.getUsername());
-        FriendSentListResponse response = friendService.getSentRequests(userId);
+        FriendSentListResponse response = friendService.getSentRequests(userId, cursor, size);
         return ResponseEntity.ok(ApiResponse.ok(response));
     }
 

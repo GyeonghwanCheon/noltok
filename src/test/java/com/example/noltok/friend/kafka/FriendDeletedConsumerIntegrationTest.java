@@ -14,6 +14,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.within;
 import static org.awaitility.Awaitility.await;
 
 // Kafka(발행→소비) + MySQL(이력 저장) 전체 파이프라인을 실제 인프라로 검증
@@ -51,9 +52,11 @@ class FriendDeletedConsumerIntegrationTest extends AbstractIntegrationTest {
             assertThat(saved.getRequesterId()).isEqualTo(1L);
             assertThat(saved.getReceiverId()).isEqualTo(2L);
             assertThat(saved.getDeletedBy()).isEqualTo(1L);
-            // DB 컬럼이 datetime(6)이라 마이크로초까지만 저장됨 — 원본과 같은 정밀도로 잘라서 비교
-            // (그대로 비교하면 나노초 단위 클럭 노이즈 때문에 리눅스 환경에서만 실패함)
-            assertThat(saved.getFriendSince()).isEqualTo(friendSince.truncatedTo(ChronoUnit.MICROS));
+            // MySQL은 datetime(6) 컬럼에 더 정밀한 값이 들어오면 버리는 게 아니라
+            // "반올림"해서 저장함(MySQL 5.6.4부터 공식 문서화된 동작) — truncatedTo()로
+            // 맞춰도 반올림 케이스에선 여전히 어긋날 수 있어, 정확히 같은 순간인지만
+            // 확인하면 충분하므로 1초 오차를 허용
+            assertThat(saved.getFriendSince()).isCloseTo(friendSince, within(1, ChronoUnit.SECONDS));
         });
     }
 }

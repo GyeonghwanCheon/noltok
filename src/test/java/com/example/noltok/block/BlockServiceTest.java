@@ -18,6 +18,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.SliceImpl;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
@@ -28,6 +30,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -165,18 +168,56 @@ class BlockServiceTest {
         // given
         Block block1 = persistedBlock(blockId, userId, targetId, true);
         User blockedUser = testUser(targetId, "차단대상");
-        given(blockRepository.findAllByBlockerIdAndIsActiveTrue(userId)).willReturn(List.of(block1));
+        given(blockRepository.findAllByBlockerIdAndIsActiveTrueOrderByIdDesc(eq(userId), any(PageRequest.class)))
+                .willReturn(new SliceImpl<>(List.of(block1), PageRequest.of(0, 20), false));
         given(userProfileCacheService.getProfiles(List.of(targetId)))
                 .willReturn(Map.of(targetId, UserProfileDto.from(blockedUser)));
 
         // when
-        BlockListResponse response = blockService.getBlocks(userId);
+        BlockListResponse response = blockService.getBlocks(userId, null, 20);
 
         // then: 멤버 수만큼 findById를 반복하지 않고 프로필 캐시 배치 조회 1번으로 처리 (N+1 방지)
         assertThat(response.blocks()).hasSize(1);
         assertThat(response.blocks().get(0).nickname()).isEqualTo("차단대상");
         verify(userRepository, never()).findById(any());
         verify(userProfileCacheService).getProfiles(List.of(targetId));
+    }
+
+    @Test
+    void getBlocks_커서없이_조회하면_첫페이지를_요청하고_hasNext를_그대로_반환한다() {
+        // given
+        Block block1 = persistedBlock(blockId, userId, targetId, true);
+        User blockedUser = testUser(targetId, "차단대상");
+        given(blockRepository.findAllByBlockerIdAndIsActiveTrueOrderByIdDesc(eq(userId), any(PageRequest.class)))
+                .willReturn(new SliceImpl<>(List.of(block1), PageRequest.of(0, 20), true));
+        given(userProfileCacheService.getProfiles(List.of(targetId)))
+                .willReturn(Map.of(targetId, UserProfileDto.from(blockedUser)));
+
+        // when
+        BlockListResponse response = blockService.getBlocks(userId, null, 20);
+
+        // then
+        assertThat(response.hasNext()).isTrue();
+        assertThat(response.nextCursor()).isEqualTo(blockId);
+        verify(blockRepository, never()).findAllByBlockerIdAndIsActiveTrueAndIdLessThanOrderByIdDesc(any(), any(), any());
+    }
+
+    @Test
+    void getBlocks_커서가_있으면_그보다_이전_차단을_조회한다() {
+        // given
+        Block block1 = persistedBlock(50L, userId, targetId, true);
+        User blockedUser = testUser(targetId, "차단대상");
+        given(blockRepository.findAllByBlockerIdAndIsActiveTrueAndIdLessThanOrderByIdDesc(eq(userId), eq(100L), any(PageRequest.class)))
+                .willReturn(new SliceImpl<>(List.of(block1), PageRequest.of(0, 20), false));
+        given(userProfileCacheService.getProfiles(List.of(targetId)))
+                .willReturn(Map.of(targetId, UserProfileDto.from(blockedUser)));
+
+        // when
+        BlockListResponse response = blockService.getBlocks(userId, 100L, 20);
+
+        // then
+        assertThat(response.hasNext()).isFalse();
+        verify(blockRepository, never()).findAllByBlockerIdAndIsActiveTrueOrderByIdDesc(any(), any());
     }
 
     // ── unblockUser() ──────────────────────────────────────────

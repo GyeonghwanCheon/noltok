@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -42,10 +43,12 @@ public class BlockController {
     // 차단 목록 조회 API
     @GetMapping
     public ResponseEntity<ApiResponse<BlockListResponse>> getBlocks(
-            @AuthenticationPrincipal UserDetails userDetails) {
+            @AuthenticationPrincipal UserDetails userDetails,
+            @RequestParam(required = false) Long cursor,
+            @RequestParam(defaultValue = "20") int size) {
 
         Long userId = Long.parseLong(userDetails.getUsername());
-        BlockListResponse response = blockService.getBlocks(userId);
+        BlockListResponse response = blockService.getBlocks(userId, cursor, size);
         return ResponseEntity.ok(ApiResponse.ok(response));
     }
 

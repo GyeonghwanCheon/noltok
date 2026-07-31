@@ -14,12 +14,13 @@ import com.example.noltok.user.UserProfileCacheService;
 import com.example.noltok.user.UserRepository;
 import com.example.noltok.user.dto.UserProfileDto;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Slice;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -68,12 +69,15 @@ public class BlockService {
     }
 
     @Transactional(readOnly = true)
-    public BlockListResponse getBlocks(Long userId) {
-        // 1. 활성 차단 목록 조회
-        List<Block> activeBlocks = blockRepository.findAllByBlockerIdAndIsActiveTrue(userId);
+    public BlockListResponse getBlocks(Long userId, Long cursor, int size) {
+        // 1. 커서 유무로 분기해 활성 차단 목록 조회 (Friend와 동일한 커서 페이지네이션 패턴)
+        PageRequest pageRequest = PageRequest.of(0, size);
+        Slice<Block> slice = (cursor == null)
+                ? blockRepository.findAllByBlockerIdAndIsActiveTrueOrderByIdDesc(userId, pageRequest)
+                : blockRepository.findAllByBlockerIdAndIsActiveTrueAndIdLessThanOrderByIdDesc(userId, cursor, pageRequest);
 
         // 2. 차단 대상 userId 추출
-        List<Long> blockedIds = activeBlocks.stream()
+        List<Long> blockedIds = slice.getContent().stream()
                 .map(Block::getBlockedId)
                 .toList();
 
@@ -81,11 +85,11 @@ public class BlockService {
         Map<Long, UserProfileDto> profileMap = userProfileCacheService.getProfiles(blockedIds);
 
         // 4. DTO 변환
-        List<BlockDto> blocks = activeBlocks.stream()
+        List<BlockDto> blocks = slice.getContent().stream()
                 .map(block -> BlockDto.of(block, profileMap.get(block.getBlockedId())))
                 .toList();
 
-        return BlockListResponse.of(blocks);
+        return BlockListResponse.of(blocks, slice.hasNext());
     }
 
     @Transactional

@@ -21,7 +21,9 @@ import java.time.LocalDate;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.BDDMockito.given;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -82,7 +84,7 @@ class BlockControllerTest extends ControllerTestSupport {
     @Test
     void 차단목록조회_정상_요청시_200을_응답한다() throws Exception {
         // given
-        given(blockService.getBlocks(1L)).willReturn(BlockListResponse.of(List.of()));
+        given(blockService.getBlocks(anyLong(), isNull(), anyInt())).willReturn(BlockListResponse.of(List.of(), false));
 
         // when & then
         mockMvc.perform(get("/api/v1/blocks")

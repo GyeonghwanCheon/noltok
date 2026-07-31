@@ -1,10 +1,11 @@
 package com.example.noltok.block;
 
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Slice;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-import java.util.List;
 import java.util.Optional;
 
 public interface BlockRepository extends JpaRepository<Block, Long> {
@@ -13,8 +14,11 @@ public interface BlockRepository extends JpaRepository<Block, Long> {
     // → OR 조건 없이 단순 조회로 충분
     Optional<Block> findByBlockerIdAndBlockedId(Long blockerId, Long blockedId);
 
-    // 차단 목록 조회용
-    List<Block> findAllByBlockerIdAndIsActiveTrue(Long blockerId);
+    // 차단 목록 조회용 — 커서 기반 페이지네이션 (Friend와 동일 패턴: id DESC, Slice)
+    Slice<Block> findAllByBlockerIdAndIsActiveTrueOrderByIdDesc(Long blockerId, Pageable pageable);
+
+    Slice<Block> findAllByBlockerIdAndIsActiveTrueAndIdLessThanOrderByIdDesc(
+            Long blockerId, Long cursor, Pageable pageable);
 
     // 채팅방 초대 검증용
     // → "내가 상대를 차단" OR "상대가 나를 차단" 둘 다 확인해야 하므로 양방향 조회

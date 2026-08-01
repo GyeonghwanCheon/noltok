@@ -47,6 +47,8 @@ class BlockServiceTest {
     private FriendRepository friendRepository;
     @Mock
     private UserProfileCacheService userProfileCacheService;
+    @Mock
+    private BlockCacheService blockCacheService;
 
     private BlockService blockService;
 
@@ -70,7 +72,7 @@ class BlockServiceTest {
 
     @BeforeEach
     void setUp() {
-        blockService = new BlockService(blockRepository, userRepository, friendRepository, userProfileCacheService);
+        blockService = new BlockService(blockRepository, userRepository, friendRepository, userProfileCacheService, blockCacheService);
     }
 
     // ── blockUser() ────────────────────────────────────────────
@@ -94,6 +96,7 @@ class BlockServiceTest {
         assertThat(response.blockedNickname()).isEqualTo("차단대상");
         verify(blockRepository).save(any(Block.class));
         verify(friendRepository).delete(accepted);
+        verify(blockCacheService).invalidate(userId, targetId);
     }
 
     @Test
@@ -140,6 +143,7 @@ class BlockServiceTest {
         // then: save()로 새 row를 만들지 않고 기존 row를 재활성화만 함
         assertThat(inactive.isActive()).isTrue();
         verify(blockRepository, never()).save(any());
+        verify(blockCacheService).invalidate(userId, targetId);
     }
 
     @Test
@@ -237,6 +241,7 @@ class BlockServiceTest {
         assertThat(response.message()).contains("차단대상");
         assertThat(active.isActive()).isFalse();
         verify(blockRepository, never()).delete(any());
+        verify(blockCacheService).invalidate(userId, targetId);
     }
 
     @Test

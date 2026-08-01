@@ -30,6 +30,7 @@ public class BlockService {
     private final UserRepository userRepository;
     private final FriendRepository friendRepository;
     private final UserProfileCacheService userProfileCacheService;
+    private final BlockCacheService blockCacheService;
 
     @Transactional
     public BlockResponse blockUser(Long userId, BlockRequest request) {
@@ -49,6 +50,9 @@ public class BlockService {
 
         // 4. 기존 친구 관계(PENDING/ACCEPTED) 있으면 삭제
         removeExistingFriendship(userId, target.getId());
+
+        // 5. 메시지 파이프라인의 차단 캐시 무효화 (다음 조회 때 DB에서 재캐싱됨)
+        blockCacheService.invalidate(userId, target.getId());
 
         return BlockResponse.of(block, target.getNickname());
     }
@@ -110,6 +114,9 @@ public class BlockService {
 
         // 4. Soft Delete
         block.deactivate();
+
+        // 5. 메시지 파이프라인의 차단 캐시 무효화
+        blockCacheService.invalidate(userId, block.getBlockedId());
 
         return BlockDeleteResponse.of(blockId, blockedUser.getNickname());
     }

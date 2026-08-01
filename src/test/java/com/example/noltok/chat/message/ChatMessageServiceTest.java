@@ -1,5 +1,6 @@
 package com.example.noltok.chat.message;
 
+import com.example.noltok.block.BlockCacheService;
 import com.example.noltok.chat.ChatRoom;
 import com.example.noltok.chat.ChatRoomMemberRepository;
 import com.example.noltok.chat.ChatRoomRepository;
@@ -50,6 +51,8 @@ class ChatMessageServiceTest {
     private UserProfileCacheService userProfileCacheService;
     @Mock
     private ChatMessageProducer chatMessageProducer;
+    @Mock
+    private BlockCacheService blockCacheService;
 
     private ChatMessageService chatMessageService;
 
@@ -77,7 +80,7 @@ class ChatMessageServiceTest {
     @BeforeEach
     void setUp() {
         chatMessageService = new ChatMessageService(chatMessageRepository, chatRoomRepository,
-                chatRoomMemberRepository, userProfileCacheService, chatMessageProducer);
+                chatRoomMemberRepository, userProfileCacheService, chatMessageProducer, blockCacheService);
     }
 
     // ── sendMessage() ──────────────────────────────────────────
@@ -150,7 +153,8 @@ class ChatMessageServiceTest {
         given(chatRoomRepository.findById(roomId)).willReturn(Optional.of(activeRoom(roomId)));
         given(chatRoomMemberRepository.findByChatRoomIdAndUserIdAndIsActiveTrue(roomId, userId))
                 .willReturn(Optional.of(ChatRoomMember.create(activeRoom(roomId), userId, ChatRoomRole.MEMBER)));
-        given(chatMessageRepository.findByRoomIdOrderByIdDesc(anyLong(), any(Pageable.class)))
+        given(blockCacheService.getBlockedByMe(userId)).willReturn(List.of());
+        given(chatMessageRepository.findByRoomIdAndSenderIdNotInOrderByIdDesc(eq(roomId), eq(List.of(-1L)), any(Pageable.class)))
                 .willReturn(new SliceImpl<>(List.of(message), PageRequest.of(0, 20), false));
         given(userProfileCacheService.getProfiles(List.of(userId)))
                 .willReturn(Map.of(userId, UserProfileDto.from(sender)));
@@ -160,19 +164,21 @@ class ChatMessageServiceTest {
 
         // then
         assertThat(response.messages()).hasSize(1);
-        verify(chatMessageRepository).findByRoomIdOrderByIdDesc(anyLong(), any(Pageable.class));
-        verify(chatMessageRepository, never()).findByRoomIdAndIdLessThanOrderByIdDesc(anyLong(), anyLong(), any());
+        verify(chatMessageRepository).findByRoomIdAndSenderIdNotInOrderByIdDesc(eq(roomId), eq(List.of(-1L)), any(Pageable.class));
+        verify(chatMessageRepository, never()).findByRoomIdAndSenderIdNotInAndIdLessThanOrderByIdDesc(any(), any(), anyLong(), any());
     }
 
     @Test
-    void getMessages_cursor가_있으면_그보다_이전_메시지를_조회한다() {
+    void getMessages_커서가_있으면_그보다_이전_메시지를_조회한다() {
         // given
         User sender = testUser(userId, "발신자");
         ChatMessage message = testMessage(3L, userId, "이전 메시지");
         given(chatRoomRepository.findById(roomId)).willReturn(Optional.of(activeRoom(roomId)));
         given(chatRoomMemberRepository.findByChatRoomIdAndUserIdAndIsActiveTrue(roomId, userId))
                 .willReturn(Optional.of(ChatRoomMember.create(activeRoom(roomId), userId, ChatRoomRole.MEMBER)));
-        given(chatMessageRepository.findByRoomIdAndIdLessThanOrderByIdDesc(eq(roomId), eq(5L), any(Pageable.class)))
+        given(blockCacheService.getBlockedByMe(userId)).willReturn(List.of());
+        given(chatMessageRepository.findByRoomIdAndSenderIdNotInAndIdLessThanOrderByIdDesc(
+                eq(roomId), eq(List.of(-1L)), eq(5L), any(Pageable.class)))
                 .willReturn(new SliceImpl<>(List.of(message), PageRequest.of(0, 20), true));
         given(userProfileCacheService.getProfiles(List.of(userId)))
                 .willReturn(Map.of(userId, UserProfileDto.from(sender)));
@@ -182,7 +188,28 @@ class ChatMessageServiceTest {
 
         // then
         assertThat(response.hasNext()).isTrue();
-        verify(chatMessageRepository, never()).findByRoomIdOrderByIdDesc(anyLong(), any());
+        verify(chatMessageRepository, never()).findByRoomIdAndSenderIdNotInOrderByIdDesc(any(), any(), any());
+    }
+
+    @Test
+    void getMessages_내가_차단한_사람의_메시지는_제외하고_조회한다() {
+        // given: 차단한 유저(99L)의 id를 NOT IN 조건으로 그대로 넘기는지 확인
+        User sender = testUser(userId, "발신자");
+        ChatMessage message = testMessage(5L, userId, "최신 메시지");
+        given(chatRoomRepository.findById(roomId)).willReturn(Optional.of(activeRoom(roomId)));
+        given(chatRoomMemberRepository.findByChatRoomIdAndUserIdAndIsActiveTrue(roomId, userId))
+                .willReturn(Optional.of(ChatRoomMember.create(activeRoom(roomId), userId, ChatRoomRole.MEMBER)));
+        given(blockCacheService.getBlockedByMe(userId)).willReturn(List.of(99L));
+        given(chatMessageRepository.findByRoomIdAndSenderIdNotInOrderByIdDesc(eq(roomId), eq(List.of(99L)), any(Pageable.class)))
+                .willReturn(new SliceImpl<>(List.of(message), PageRequest.of(0, 20), false));
+        given(userProfileCacheService.getProfiles(List.of(userId)))
+                .willReturn(Map.of(userId, UserProfileDto.from(sender)));
+
+        // when
+        chatMessageService.getMessages(userId, roomId, null, 20);
+
+        // then: 차단 목록(99L)이 sentinel(-1L) 대신 그대로 NOT IN 조건에 쓰였는지
+        verify(chatMessageRepository).findByRoomIdAndSenderIdNotInOrderByIdDesc(eq(roomId), eq(List.of(99L)), any(Pageable.class));
     }
 
     @Test
@@ -195,7 +222,8 @@ class ChatMessageServiceTest {
         given(chatRoomRepository.findById(roomId)).willReturn(Optional.of(activeRoom(roomId)));
         given(chatRoomMemberRepository.findByChatRoomIdAndUserIdAndIsActiveTrue(roomId, userId))
                 .willReturn(Optional.of(ChatRoomMember.create(activeRoom(roomId), userId, ChatRoomRole.MEMBER)));
-        given(chatMessageRepository.findByRoomIdOrderByIdDesc(anyLong(), any(Pageable.class)))
+        given(blockCacheService.getBlockedByMe(userId)).willReturn(List.of());
+        given(chatMessageRepository.findByRoomIdAndSenderIdNotInOrderByIdDesc(eq(roomId), eq(List.of(-1L)), any(Pageable.class)))
                 .willReturn(new SliceImpl<>(List.of(newest, middle, oldest), PageRequest.of(0, 20), false));
         given(userProfileCacheService.getProfiles(List.of(userId)))
                 .willReturn(Map.of(userId, UserProfileDto.from(sender)));

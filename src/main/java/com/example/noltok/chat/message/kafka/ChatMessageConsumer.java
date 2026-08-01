@@ -1,5 +1,6 @@
 package com.example.noltok.chat.message.kafka;
 
+import com.example.noltok.block.BlockCacheService;
 import com.example.noltok.chat.ChatRoomMember;
 import com.example.noltok.chat.ChatRoomMemberRepository;
 import com.example.noltok.chat.UnreadCountCacheService;
@@ -36,6 +37,7 @@ public class ChatMessageConsumer {
     private final UserPresenceService userPresenceService;
     private final NotificationProducer notificationProducer;
     private final UnreadCountCacheService unreadCountCacheService;
+    private final BlockCacheService blockCacheService;
 
     @KafkaListener(topics = KafkaConfig.CHAT_MESSAGE_TOPIC,
             groupId = "chat-message-group",
@@ -63,8 +65,7 @@ public class ChatMessageConsumer {
                         member -> member.getChatRoom().getId(),
                         Collectors.mapping(ChatRoomMember::getUserId, Collectors.toList())));
 
-        // 4. 메시지별 브로드캐스트 + 오프라인 멤버 알림 발행 (배치 조회 결과 재사용, 개별 실패는 격리)
-        //    저장(1번)은 이미 끝났으므로, 후속 처리 실패가 메시지 유실로 이어지지 않게 예외를 여기서 흡수
+        // 4. 메시지별 브로드캐스트 + 오프라인 멤버 알림 발행 (개별 실패는 격리)
         Set<Long> unreadInvalidateTargets = new HashSet<>();
         for (int i = 0; i < events.size(); i++) {
             ChatMessageEvent event = events.get(i);
@@ -76,11 +77,18 @@ public class ChatMessageConsumer {
                 }
 
                 ChatMessageResponse response = ChatMessageResponse.of(message, sender.nickname());
-                simpMessagingTemplate.convertAndSend("/topic/rooms/" + event.roomId(), response);
 
+                // 나를 차단한 사람은 실시간 메시지도 받지 않음
+                Set<Long> blockedMeIds = new HashSet<>(blockCacheService.getBlockedMe(event.senderId()));
                 List<Long> otherMemberIds = memberIdsByRoom.getOrDefault(event.roomId(), List.of()).stream()
                         .filter(userId -> !userId.equals(event.senderId()))
+                        .filter(userId -> !blockedMeIds.contains(userId))
                         .toList();
+
+                // 공유 토픽 대신 개인 큐로 전송 (수신자별 차단 필터링을 위해 필수)
+                String destination = "/queue/rooms/" + event.roomId();
+                simpMessagingTemplate.convertAndSendToUser(String.valueOf(event.senderId()), destination, response);
+                otherMemberIds.forEach(userId -> simpMessagingTemplate.convertAndSendToUser(String.valueOf(userId), destination, response));
 
                 String content = sender.nickname() + ": " + message.toPreviewText();
                 otherMemberIds.stream()

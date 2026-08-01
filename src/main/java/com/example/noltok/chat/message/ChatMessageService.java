@@ -1,5 +1,6 @@
 package com.example.noltok.chat.message;
 
+import com.example.noltok.block.BlockCacheService;
 import com.example.noltok.chat.ChatRoom;
 import com.example.noltok.chat.ChatRoomMemberRepository;
 import com.example.noltok.chat.ChatRoomRepository;
@@ -32,6 +33,10 @@ public class ChatMessageService {
     private final ChatRoomMemberRepository chatRoomMemberRepository;
     private final UserProfileCacheService userProfileCacheService;
     private final ChatMessageProducer chatMessageProducer;
+    private final BlockCacheService blockCacheService;
+
+    // NOT IN 쿼리에 빈 컬렉션을 넘기지 않기 위한, 실제 userId와 절대 안 겹치는 sentinel
+    private static final List<Long> NO_EXCLUSION = List.of(-1L);
 
     @Transactional(readOnly = true)
     public void sendMessage(Long roomId, Long senderId, SendMessageRequest request) {
@@ -63,17 +68,23 @@ public class ChatMessageService {
         chatRoomMemberRepository.findByChatRoomIdAndUserIdAndIsActiveTrue(roomId, userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_CHATROOM_MEMBER));
 
-        // 3. 커서 기반 조회 (id DESC), Slice가 다음 페이지 존재 여부를 자동 판단
+        // 3. 내가 차단한 사람의 메시지는 이력에서 제외
+        List<Long> excludedSenderIds = blockCacheService.getBlockedByMe(userId);
+        if (excludedSenderIds.isEmpty()) {
+            excludedSenderIds = NO_EXCLUSION;
+        }
+
+        // 4. 커서 기반 조회 (id DESC), Slice가 다음 페이지 존재 여부를 자동 판단
         Pageable pageable = PageRequest.of(0, size);
         Slice<ChatMessage> slice = cursor == null
-                ? chatMessageRepository.findByRoomIdOrderByIdDesc(roomId, pageable)
-                : chatMessageRepository.findByRoomIdAndIdLessThanOrderByIdDesc(roomId, cursor, pageable);
+                ? chatMessageRepository.findByRoomIdAndSenderIdNotInOrderByIdDesc(roomId, excludedSenderIds, pageable)
+                : chatMessageRepository.findByRoomIdAndSenderIdNotInAndIdLessThanOrderByIdDesc(roomId, excludedSenderIds, cursor, pageable);
 
-        // 4. 발신자 프로필 캐시로 일괄 조회 (N+1 방지)
+        // 5. 발신자 프로필 캐시로 일괄 조회 (N+1 방지)
         List<Long> senderIds = slice.getContent().stream().map(ChatMessage::getSenderId).distinct().toList();
         Map<Long, UserProfileDto> profileMap = userProfileCacheService.getProfiles(senderIds);
 
-        // 5. 오래된 순으로 뒤집어서 응답 구성
+        // 6. 오래된 순으로 뒤집어서 응답 구성
         List<ChatMessage> ascending = new ArrayList<>(slice.getContent());
         Collections.reverse(ascending);
         List<ChatMessageResponse> messages = ascending.stream()

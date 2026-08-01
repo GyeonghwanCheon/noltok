@@ -51,7 +51,8 @@ async def run_client(idx, entry, duration, results):
                 results.append({"idx": idx, "error": f"CONNECT 실패: {connected_frame[:100]}"})
                 return
 
-            await ws.send(f"SUBSCRIBE\nid:sub-0\ndestination:/topic/rooms/{room_id}\n\n\x00")
+            # 차단 필터링 도입으로 방 공유 토픽 대신 개인 큐로 메시지가 나감
+            await ws.send(f"SUBSCRIBE\nid:sub-0\ndestination:/user/queue/rooms/{room_id}\n\n\x00")
 
             async def sender():
                 nonlocal sent_count

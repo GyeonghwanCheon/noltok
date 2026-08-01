@@ -23,8 +23,9 @@ public class StompAuthInterceptor implements ChannelInterceptor {
     private final JwtProvider jwtProvider;
     private final ChatRoomMemberRepository chatRoomMemberRepository;
 
-    // 구독 destination 형식: /topic/rooms/{roomId}
+    // /topic/rooms/{roomId}는 레거시(더 이상 미사용), 현재는 /user/queue/rooms/{roomId}로 전송
     private static final Pattern ROOM_TOPIC_PATTERN = Pattern.compile("^/topic/rooms/(\\d+)$");
+    private static final Pattern ROOM_QUEUE_PATTERN = Pattern.compile("^/user/queue/rooms/(\\d+)$");
 
     @Override
     public Message<?> preSend(Message<?> message, MessageChannel channel) {
@@ -66,15 +67,19 @@ public class StompAuthInterceptor implements ChannelInterceptor {
     // destination에서 roomId를 파싱해서 활성 멤버인지 확인
     private void authorizeSubscription(StompHeaderAccessor accessor) {
         String destination = accessor.getDestination();
-
-        // /user/** 는 세션 소유자에게만 전달되는 개인 큐라 방 멤버십 검증 대상이 아님
-        if (destination != null && destination.startsWith("/user/")) {
-            return;
+        if (destination == null) {
+            throw new MessagingException("구독할 수 없는 destination입니다.");
         }
 
-        Matcher matcher = destination != null ? ROOM_TOPIC_PATTERN.matcher(destination) : null;
-
-        if (matcher == null || !matcher.matches()) {
+        // 방 단위 destination만 멤버십 검증, 그 외 /user/** 개인 큐는 검증 생략
+        Matcher matcher = ROOM_QUEUE_PATTERN.matcher(destination);
+        if (!matcher.matches()) {
+            matcher = ROOM_TOPIC_PATTERN.matcher(destination);
+        }
+        if (!matcher.matches()) {
+            if (destination.startsWith("/user/")) {
+                return;
+            }
             throw new MessagingException("구독할 수 없는 destination입니다.");
         }
 

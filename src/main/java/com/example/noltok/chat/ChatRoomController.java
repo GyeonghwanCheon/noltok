@@ -47,8 +47,10 @@ public class ChatRoomController {
     // 채팅방 검색 API — /{roomId}보다 먼저 선언해야 "search"가 roomId로 인식되지 않음
     @GetMapping("/search")
     public ResponseEntity<ApiResponse<ChatRoomSearchResponse>> searchRooms(
-            @RequestParam String name) {
-        ChatRoomSearchResponse response = chatRoomService.searchRooms(name);
+            @RequestParam String name,
+            @RequestParam(required = false) Long cursor,
+            @RequestParam(defaultValue = "20") int size) {
+        ChatRoomSearchResponse response = chatRoomService.searchRooms(name, cursor, size);
         return ResponseEntity.ok(ApiResponse.ok(response));
     }
 

@@ -32,6 +32,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
@@ -114,7 +115,7 @@ class ChatRoomControllerTest extends ControllerTestSupport {
     void 채팅방검색_정상_요청시_200을_응답한다() throws Exception {
         // given: 검색 API는 @AuthenticationPrincipal이 없지만, permitAll 목록엔
         // 없으므로 SecurityConfig에 의해 여전히 인증은 필요함
-        given(chatRoomService.searchRooms("개발")).willReturn(ChatRoomSearchResponse.of(List.of()));
+        given(chatRoomService.searchRooms(eq("개발"), isNull(), anyInt())).willReturn(ChatRoomSearchResponse.of(List.of(), false));
 
         // when & then
         mockMvc.perform(get("/api/v1/chat/rooms/search")

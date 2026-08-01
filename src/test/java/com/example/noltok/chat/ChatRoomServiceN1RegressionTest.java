@@ -136,7 +136,7 @@ class ChatRoomServiceN1RegressionTest {
 
         // when
         statistics.clear();
-        ChatRoomSearchResponse response = chatRoomService.searchRooms("N+1검색방");
+        ChatRoomSearchResponse response = chatRoomService.searchRooms("N+1검색방", null, 20);
 
         // then: 검색 결과가 20개여도 쿼리 수는 한 자릿수여야 함
         // (배치 카운트 쿼리로 최적화 안 됐다면 방 수만큼 COUNT 쿼리가 나가 20을 훌쩍 넘음)

@@ -21,6 +21,8 @@ import com.example.noltok.user.UserProfileCacheService;
 import com.example.noltok.user.UserRepository;
 import com.example.noltok.user.dto.UserProfileDto;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Slice;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -245,10 +247,14 @@ public class ChatRoomService {
     }
 
     @Transactional(readOnly = true)
-    public ChatRoomSearchResponse searchRooms(String name) {
+    public ChatRoomSearchResponse searchRooms(String name, Long cursor, int size) {
 
-        // 1. OPEN/OPEN_PRIVATE 채팅방 이름 부분일치 검색
-        List<ChatRoom> chatRooms = chatRoomRepository.searchByRoomname(name);
+        // 1. 커서 유무로 분기해 OPEN/OPEN_PRIVATE 채팅방 이름 부분일치 검색 (Friend/Block과 동일한 커서 페이지네이션 패턴)
+        PageRequest pageRequest = PageRequest.of(0, size);
+        Slice<ChatRoom> slice = (cursor == null)
+                ? chatRoomRepository.searchByRoomnameOrderByIdDesc(name, pageRequest)
+                : chatRoomRepository.searchByRoomnameAndIdLessThanOrderByIdDesc(name, cursor, pageRequest);
+        List<ChatRoom> chatRooms = slice.getContent();
 
         // 2. 검색된 채팅방들의 활성 멤버 수 배치 조회 (N+1 방지)
         List<Long> roomIds = chatRooms.stream().map(ChatRoom::getId).toList();
@@ -261,7 +267,7 @@ public class ChatRoomService {
                 .map(room -> SearchRoomDto.of(room, memberCountMap.getOrDefault(room.getId(), 0L).intValue()))
                 .toList();
 
-        return ChatRoomSearchResponse.of(rooms);
+        return ChatRoomSearchResponse.of(rooms, slice.hasNext());
     }
 
     // DIRECT 전용 검증 — 1명만 초대 가능, 기존 DIRECT 방 있으면 중복 생성 불가

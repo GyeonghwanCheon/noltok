@@ -44,6 +44,10 @@ public enum ErrorCode {
     CHATROOM_ADMIN_MUST_DELEGATE(HttpStatus.FORBIDDEN, "관리자는 위임 후에만 나갈 수 있습니다."),
     CANNOT_DELETE_DIRECT_ROOM(HttpStatus.FORBIDDEN, "1:1 채팅방은 삭제할 수 없습니다."),
 
+    // ChatMessage
+    CHATMESSAGE_NOT_FOUND(HttpStatus.NOT_FOUND, "메시지를 찾을 수 없습니다."),
+    NOT_MESSAGE_SENDER(HttpStatus.FORBIDDEN, "본인이 보낸 메시지가 아닙니다."),
+
     // Friend
     CANNOT_REQUEST_YOURSELF(HttpStatus.BAD_REQUEST, "본인에게 친구 요청을 보낼 수 없습니다."),
     FRIEND_REQUEST_ALREADY_EXISTS(HttpStatus.CONFLICT, "이미 친구이거나 요청이 진행 중입니다."),

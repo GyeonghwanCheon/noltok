@@ -2,9 +2,12 @@ package com.example.noltok.chat.message;
 
 import com.example.noltok.block.BlockCacheService;
 import com.example.noltok.chat.ChatRoom;
+import com.example.noltok.chat.ChatRoomMember;
 import com.example.noltok.chat.ChatRoomMemberRepository;
 import com.example.noltok.chat.ChatRoomRepository;
+import com.example.noltok.chat.UnreadCountCacheService;
 import com.example.noltok.chat.message.dto.request.SendMessageRequest;
+import com.example.noltok.chat.message.dto.response.ChatMessageDeleteResponse;
 import com.example.noltok.chat.message.dto.response.ChatMessageListResponse;
 import com.example.noltok.chat.message.dto.response.ChatMessageResponse;
 import com.example.noltok.chat.message.kafka.ChatMessageProducer;
@@ -16,6 +19,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -34,6 +38,8 @@ public class ChatMessageService {
     private final UserProfileCacheService userProfileCacheService;
     private final ChatMessageProducer chatMessageProducer;
     private final BlockCacheService blockCacheService;
+    private final SimpMessagingTemplate simpMessagingTemplate;
+    private final UnreadCountCacheService unreadCountCacheService;
 
     // NOT IN 쿼리에 빈 컬렉션을 넘기지 않기 위한, 실제 userId와 절대 안 겹치는 sentinel
     private static final List<Long> NO_EXCLUSION = List.of(-1L);
@@ -92,5 +98,36 @@ public class ChatMessageService {
                 .toList();
 
         return ChatMessageListResponse.of(messages, slice.hasNext());
+    }
+
+    @Transactional
+    public ChatMessageDeleteResponse deleteMessage(Long userId, Long roomId, Long messageId) {
+        // 1. 메시지 조회
+        ChatMessage message = chatMessageRepository.findById(messageId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.CHATMESSAGE_NOT_FOUND));
+
+        // 2. 경로의 roomId와 실제 메시지의 방이 일치하는지 확인 (다른 방 메시지면 존재 자체를 숨김)
+        if (!message.getRoomId().equals(roomId)) {
+            throw new BusinessException(ErrorCode.CHATMESSAGE_NOT_FOUND);
+        }
+
+        // 3. 본인이 보낸 메시지인지 확인
+        if (!message.getSenderId().equals(userId)) {
+            throw new BusinessException(ErrorCode.NOT_MESSAGE_SENDER);
+        }
+
+        // 4. Hard Delete (흔적을 남기지 않기로 결정, decision-log.md 참고)
+        chatMessageRepository.delete(message);
+
+        // 5. 방 활성 멤버 전원에게 실시간 삭제 이벤트 전파 + 안읽음 캐시 무효화
+        ChatMessageDeleteResponse response = ChatMessageDeleteResponse.of(messageId);
+        List<ChatRoomMember> members = chatRoomMemberRepository.findByChatRoomIdAndIsActiveTrue(roomId);
+        for (ChatRoomMember member : members) {
+            simpMessagingTemplate.convertAndSendToUser(
+                    String.valueOf(member.getUserId()), "/queue/rooms/" + roomId + "/deleted", response);
+            unreadCountCacheService.invalidate(member.getUserId());
+        }
+
+        return response;
     }
 }

@@ -1,6 +1,7 @@
 package com.example.noltok.chat.message;
 
 import com.example.noltok.chat.message.dto.request.SendMessageRequest;
+import com.example.noltok.chat.message.dto.response.ChatMessageDeleteResponse;
 import com.example.noltok.chat.message.dto.response.ChatMessageListResponse;
 import com.example.noltok.global.exception.BusinessException;
 import com.example.noltok.global.response.ApiResponse;
@@ -13,6 +14,7 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -53,6 +55,17 @@ public class ChatMessageController {
             @RequestParam(defaultValue = "20") int size) {
         Long userId = Long.parseLong(userDetails.getUsername());
         ChatMessageListResponse response = chatMessageService.getMessages(userId, roomId, cursor, size);
+        return ResponseEntity.ok(ApiResponse.ok(response));
+    }
+
+    // 채팅 메시지 삭제 API (본인 메시지만, Hard Delete)
+    @DeleteMapping("/api/v1/chat/rooms/{roomId}/messages/{messageId}")
+    public ResponseEntity<ApiResponse<ChatMessageDeleteResponse>> deleteMessage(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable Long roomId,
+            @PathVariable Long messageId) {
+        Long userId = Long.parseLong(userDetails.getUsername());
+        ChatMessageDeleteResponse response = chatMessageService.deleteMessage(userId, roomId, messageId);
         return ResponseEntity.ok(ApiResponse.ok(response));
     }
 }

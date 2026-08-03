@@ -6,7 +6,9 @@ import com.example.noltok.chat.ChatRoomMemberRepository;
 import com.example.noltok.chat.ChatRoomRepository;
 import com.example.noltok.chat.ChatRoomMember;
 import com.example.noltok.chat.ChatRoomRole;
+import com.example.noltok.chat.UnreadCountCacheService;
 import com.example.noltok.chat.message.dto.request.SendMessageRequest;
+import com.example.noltok.chat.message.dto.response.ChatMessageDeleteResponse;
 import com.example.noltok.chat.message.dto.response.ChatMessageListResponse;
 import com.example.noltok.chat.message.kafka.ChatMessageProducer;
 import com.example.noltok.global.exception.BusinessException;
@@ -22,6 +24,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.SliceImpl;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
@@ -35,6 +38,7 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 // DB/Kafka 없이 순수 JVM에서 도는 단위 테스트 — Repository/Producer는 전부 Mock
@@ -53,6 +57,10 @@ class ChatMessageServiceTest {
     private ChatMessageProducer chatMessageProducer;
     @Mock
     private BlockCacheService blockCacheService;
+    @Mock
+    private SimpMessagingTemplate simpMessagingTemplate;
+    @Mock
+    private UnreadCountCacheService unreadCountCacheService;
 
     private ChatMessageService chatMessageService;
 
@@ -80,7 +88,8 @@ class ChatMessageServiceTest {
     @BeforeEach
     void setUp() {
         chatMessageService = new ChatMessageService(chatMessageRepository, chatRoomRepository,
-                chatRoomMemberRepository, userProfileCacheService, chatMessageProducer, blockCacheService);
+                chatRoomMemberRepository, userProfileCacheService, chatMessageProducer, blockCacheService,
+                simpMessagingTemplate, unreadCountCacheService);
     }
 
     // ── sendMessage() ──────────────────────────────────────────
@@ -246,5 +255,72 @@ class ChatMessageServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .extracting(e -> ((BusinessException) e).getErrorCode())
                 .isEqualTo(ErrorCode.CHATROOM_NOT_FOUND);
+    }
+
+    // ── deleteMessage() ────────────────────────────────────────
+
+    @Test
+    void deleteMessage_정상_삭제시_Hard_Delete하고_활성_멤버_전원에게_실시간_전파하고_안읽음_캐시를_무효화한다() {
+        // given
+        Long messageId = 5L;
+        ChatMessage message = testMessage(messageId, userId, "지울 메시지");
+        ChatRoomMember me = ChatRoomMember.create(activeRoom(roomId), userId, ChatRoomRole.MEMBER);
+        ChatRoomMember other = ChatRoomMember.create(activeRoom(roomId), 2L, ChatRoomRole.MEMBER);
+        given(chatMessageRepository.findById(messageId)).willReturn(Optional.of(message));
+        given(chatRoomMemberRepository.findByChatRoomIdAndIsActiveTrue(roomId)).willReturn(List.of(me, other));
+
+        // when
+        ChatMessageDeleteResponse response = chatMessageService.deleteMessage(userId, roomId, messageId);
+
+        // then
+        assertThat(response.messageId()).isEqualTo(messageId);
+        verify(chatMessageRepository).delete(message);
+        verify(simpMessagingTemplate).convertAndSendToUser(eq(String.valueOf(userId)),
+                eq("/queue/rooms/" + roomId + "/deleted"), eq(response));
+        verify(simpMessagingTemplate).convertAndSendToUser(eq(String.valueOf(2L)),
+                eq("/queue/rooms/" + roomId + "/deleted"), eq(response));
+        verify(unreadCountCacheService, times(2)).invalidate(any());
+    }
+
+    @Test
+    void deleteMessage_메시지가_없으면_예외() {
+        // given
+        given(chatMessageRepository.findById(5L)).willReturn(Optional.empty());
+
+        // when & then
+        assertThatThrownBy(() -> chatMessageService.deleteMessage(userId, roomId, 5L))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(ErrorCode.CHATMESSAGE_NOT_FOUND);
+        verify(chatMessageRepository, never()).delete(any());
+    }
+
+    @Test
+    void deleteMessage_다른_방의_메시지면_예외() {
+        // given: 메시지는 roomId(10L)가 아니라 다른 방(99L) 소속
+        ChatMessage message = ChatMessage.createText(99L, userId, "다른 방 메시지");
+        ReflectionTestUtils.setField(message, "id", 5L);
+        given(chatMessageRepository.findById(5L)).willReturn(Optional.of(message));
+
+        // when & then
+        assertThatThrownBy(() -> chatMessageService.deleteMessage(userId, roomId, 5L))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(ErrorCode.CHATMESSAGE_NOT_FOUND);
+        verify(chatMessageRepository, never()).delete(any());
+    }
+
+    @Test
+    void deleteMessage_본인이_보낸_메시지가_아니면_예외() {
+        // given: 발신자는 99L, 요청자는 userId(1L)
+        ChatMessage message = testMessage(5L, 99L, "남의 메시지");
+        given(chatMessageRepository.findById(5L)).willReturn(Optional.of(message));
+
+        // when & then
+        assertThatThrownBy(() -> chatMessageService.deleteMessage(userId, roomId, 5L))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(ErrorCode.NOT_MESSAGE_SENDER);
+        verify(chatMessageRepository, never()).delete(any());
     }
 }

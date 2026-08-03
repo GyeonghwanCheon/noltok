@@ -142,9 +142,9 @@ public class ChatRoomService {
         }
     }
 
-    // 내 채팅방 목록 조회
+    // 내 채팅방 목록 조회 (정렬 기준이 계산값이라 (정렬값, roomId) 복합 커서 사용)
     @Transactional(readOnly = true)
-    public ChatRoomListResponse getMyRooms(Long userId) {
+    public ChatRoomListResponse getMyRooms(Long userId, LocalDateTime cursorTimestamp, Long cursorRoomId, int size) {
 
         // 1. 내가 활성 멤버로 있는 채팅방 멤버십 전체 조회
         List<ChatRoomMember> myMemberships = chatRoomMemberRepository
@@ -166,27 +166,60 @@ public class ChatRoomService {
                 : chatMessageRepository.findLastMessagesByRoomIds(roomIds).stream()
                         .collect(Collectors.toMap(ChatMessage::getRoomId, cm -> cm));
 
-        // 4. 마지막 메시지 시각(없으면 방 상태변경 시각) 기준 정렬 — 날짜만 남은
-        //    필드로 정렬하면 시분초 정보가 사라져서 원본 LocalDateTime으로 정렬
+        // 4. 마지막 메시지 시각(없으면 방 상태변경 시각) DESC + roomId DESC(동일 시각 타이브레이커)로 정렬
         List<ChatRoomMember> sortedMemberships = myMemberships.stream()
-                .sorted((a, b) -> sortKey(b, lastMessageMap).compareTo(sortKey(a, lastMessageMap)))
+                .sorted((a, b) -> {
+                    int cmp = sortKey(b, lastMessageMap).compareTo(sortKey(a, lastMessageMap));
+                    return cmp != 0 ? cmp : Long.compare(b.getChatRoom().getId(), a.getChatRoom().getId());
+                })
                 .toList();
 
-        // 5. 정렬된 순서 그대로 채팅방 정보 + 내 역할 + 안읽은 수 + 마지막 메시지 추출
-        List<ChatRoomSummaryDto> rooms = sortedMemberships.stream()
+        // 5. 커서가 있으면 (cursorTimestamp, cursorRoomId)보다 정렬상 이후인 항목만 남김
+        List<ChatRoomMember> afterCursor = cursorTimestamp == null
+                ? sortedMemberships
+                : sortedMemberships.stream()
+                        .filter(member -> isAfterCursor(member, lastMessageMap, cursorTimestamp, cursorRoomId))
+                        .toList();
+
+        // 6. size+1개까지 살펴서 다음 페이지 존재 여부 판단
+        boolean hasNext = afterCursor.size() > size;
+        List<ChatRoomMember> page = hasNext ? afterCursor.subList(0, size) : afterCursor;
+
+        // 7. 응답 마지막 항목의 정렬값+roomId를 다음 커서로 사용
+        LocalDateTime nextCursorTimestamp = null;
+        Long nextCursorRoomId = null;
+        if (hasNext) {
+            ChatRoomMember last = page.get(page.size() - 1);
+            nextCursorTimestamp = sortKey(last, lastMessageMap);
+            nextCursorRoomId = last.getChatRoom().getId();
+        }
+
+        // 8. 페이지 순서 그대로 채팅방 정보 + 내 역할 + 안읽은 수 + 마지막 메시지 추출
+        List<ChatRoomSummaryDto> rooms = page.stream()
                 .map(member -> ChatRoomSummaryDto.of(
                         member.getChatRoom(), member,
                         unreadCountMap.getOrDefault(member.getChatRoom().getId(), 0),
                         lastMessageMap.get(member.getChatRoom().getId())))
                 .toList();
 
-        return ChatRoomListResponse.of(rooms);
+        return ChatRoomListResponse.of(rooms, hasNext, nextCursorTimestamp, nextCursorRoomId);
     }
 
     // 마지막 메시지 시각, 없으면 방 상태변경(생성 포함) 시각으로 폴백
     private LocalDateTime sortKey(ChatRoomMember member, Map<Long, ChatMessage> lastMessageMap) {
         ChatMessage lastMessage = lastMessageMap.get(member.getChatRoom().getId());
         return lastMessage != null ? lastMessage.getCreatedAt() : member.getChatRoom().getUpdatedAt();
+    }
+
+    // 커서(정렬값, roomId)보다 DESC 정렬 순서상 이후 위치인지 확인
+    private boolean isAfterCursor(ChatRoomMember member, Map<Long, ChatMessage> lastMessageMap,
+                                   LocalDateTime cursorTimestamp, Long cursorRoomId) {
+        LocalDateTime value = sortKey(member, lastMessageMap);
+        int cmp = value.compareTo(cursorTimestamp);
+        if (cmp != 0) {
+            return cmp < 0;
+        }
+        return member.getChatRoom().getId() < cursorRoomId;
     }
 
     @Transactional

@@ -10,6 +10,7 @@ import com.example.noltok.chat.dto.response.ChatRoomInviteResponse;
 import com.example.noltok.chat.dto.response.ChatRoomJoinResponse;
 import com.example.noltok.chat.dto.response.ChatRoomKickResponse;
 import com.example.noltok.chat.dto.response.ChatRoomLeaveResponse;
+import com.example.noltok.chat.dto.response.ChatRoomListResponse;
 import com.example.noltok.chat.dto.response.ChatRoomResponse;
 import com.example.noltok.chat.message.ChatMessageRepository;
 import com.example.noltok.friend.Friend;
@@ -30,6 +31,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -479,5 +481,97 @@ class ChatRoomServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .extracting(e -> ((BusinessException) e).getErrorCode())
                 .isEqualTo(ErrorCode.NOT_CHATROOM_ADMIN);
+    }
+
+    // ── getMyRooms() ───────────────────────────────────────────
+
+    private ChatRoom roomWithUpdatedAt(Long id, LocalDateTime updatedAt) {
+        ChatRoom room = room(id, ChatRoomType.OPEN, true);
+        ReflectionTestUtils.setField(room, "updatedAt", updatedAt);
+        return room;
+    }
+
+    private void stubNoUnreadCacheAndNoLastMessages() {
+        given(unreadCountCacheService.get(adminId)).willReturn(Optional.of(Map.of()));
+        given(chatMessageRepository.findLastMessagesByRoomIds(any())).willReturn(List.of());
+    }
+
+    @Test
+    void getMyRooms_커서없이_조회하면_최근_활동순으로_정렬해서_반환한다() {
+        // given: room10은 2분 전, room11은 1분 전 활동(더 최근)
+        LocalDateTime now = LocalDateTime.now();
+        ChatRoom older = roomWithUpdatedAt(10L, now.minusMinutes(2));
+        ChatRoom newer = roomWithUpdatedAt(11L, now.minusMinutes(1));
+        given(chatRoomMemberRepository.findActiveRoomsByUserId(adminId))
+                .willReturn(List.of(member(older, adminId, ChatRoomRole.ADMIN), member(newer, adminId, ChatRoomRole.ADMIN)));
+        stubNoUnreadCacheAndNoLastMessages();
+
+        // when
+        ChatRoomListResponse response = chatRoomService.getMyRooms(adminId, null, null, 20);
+
+        // then
+        assertThat(response.rooms()).extracting("roomId").containsExactly(11L, 10L);
+        assertThat(response.hasNext()).isFalse();
+    }
+
+    @Test
+    void getMyRooms_size보다_많으면_hasNext가_true이고_다음_커서를_반환한다() {
+        // given: 3개 방, size=2
+        LocalDateTime now = LocalDateTime.now();
+        ChatRoom room10 = roomWithUpdatedAt(10L, now.minusMinutes(3));
+        ChatRoom room11 = roomWithUpdatedAt(11L, now.minusMinutes(2));
+        ChatRoom room12 = roomWithUpdatedAt(12L, now.minusMinutes(1));
+        given(chatRoomMemberRepository.findActiveRoomsByUserId(adminId)).willReturn(List.of(
+                member(room10, adminId, ChatRoomRole.ADMIN),
+                member(room11, adminId, ChatRoomRole.ADMIN),
+                member(room12, adminId, ChatRoomRole.ADMIN)));
+        stubNoUnreadCacheAndNoLastMessages();
+
+        // when
+        ChatRoomListResponse response = chatRoomService.getMyRooms(adminId, null, null, 2);
+
+        // then
+        assertThat(response.rooms()).extracting("roomId").containsExactly(12L, 11L);
+        assertThat(response.hasNext()).isTrue();
+        assertThat(response.nextCursorRoomId()).isEqualTo(11L);
+        assertThat(response.nextCursorTimestamp()).isEqualTo(room11.getUpdatedAt());
+    }
+
+    @Test
+    void getMyRooms_커서가_있으면_그보다_이후_항목만_반환한다() {
+        // given: 3개 방, room11 위치를 커서로 지정
+        LocalDateTime now = LocalDateTime.now();
+        ChatRoom room10 = roomWithUpdatedAt(10L, now.minusMinutes(3));
+        ChatRoom room11 = roomWithUpdatedAt(11L, now.minusMinutes(2));
+        ChatRoom room12 = roomWithUpdatedAt(12L, now.minusMinutes(1));
+        given(chatRoomMemberRepository.findActiveRoomsByUserId(adminId)).willReturn(List.of(
+                member(room10, adminId, ChatRoomRole.ADMIN),
+                member(room11, adminId, ChatRoomRole.ADMIN),
+                member(room12, adminId, ChatRoomRole.ADMIN)));
+        stubNoUnreadCacheAndNoLastMessages();
+
+        // when
+        ChatRoomListResponse response = chatRoomService.getMyRooms(adminId, room11.getUpdatedAt(), 11L, 20);
+
+        // then: room12(커서보다 이전 위치)는 제외되고, room11 자신도 제외, room10만 남음
+        assertThat(response.rooms()).extracting("roomId").containsExactly(10L);
+        assertThat(response.hasNext()).isFalse();
+    }
+
+    @Test
+    void getMyRooms_정렬값이_같으면_roomId_내림차순으로_타이브레이크한다() {
+        // given: 두 방의 updatedAt이 완전히 동일
+        LocalDateTime same = LocalDateTime.now();
+        ChatRoom room10 = roomWithUpdatedAt(10L, same);
+        ChatRoom room11 = roomWithUpdatedAt(11L, same);
+        given(chatRoomMemberRepository.findActiveRoomsByUserId(adminId)).willReturn(List.of(
+                member(room10, adminId, ChatRoomRole.ADMIN), member(room11, adminId, ChatRoomRole.ADMIN)));
+        stubNoUnreadCacheAndNoLastMessages();
+
+        // when
+        ChatRoomListResponse response = chatRoomService.getMyRooms(adminId, null, null, 20);
+
+        // then: roomId가 더 큰 11이 먼저
+        assertThat(response.rooms()).extracting("roomId").containsExactly(11L, 10L);
     }
 }

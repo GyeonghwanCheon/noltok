@@ -10,11 +10,14 @@ import com.example.noltok.global.ratelimit.RateLimited;
 import com.example.noltok.global.response.ApiResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
+
+import java.time.LocalDateTime;
 
 @RestController
 @RequestMapping("/api/v1/chat/rooms")
@@ -35,12 +38,15 @@ public class ChatRoomController {
                 .body(ApiResponse.ok("채팅방이 생성되었습니다.", response));
     }
 
-    // 내 채팅방 목록 조회 API
+    // 내 채팅방 목록 조회 API — 정렬 기준이 계산값이라 (cursorTimestamp, cursorRoomId) 복합 커서 사용
     @GetMapping
     public ResponseEntity<ApiResponse<ChatRoomListResponse>> getMyRooms(
-            @AuthenticationPrincipal UserDetails userDetails) {
+            @AuthenticationPrincipal UserDetails userDetails,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime cursorTimestamp,
+            @RequestParam(required = false) Long cursorRoomId,
+            @RequestParam(defaultValue = "20") int size) {
         Long userId = Long.parseLong(userDetails.getUsername());
-        ChatRoomListResponse response = chatRoomService.getMyRooms(userId);
+        ChatRoomListResponse response = chatRoomService.getMyRooms(userId, cursorTimestamp, cursorRoomId, size);
         return ResponseEntity.ok(ApiResponse.ok(response));
     }
 

@@ -102,7 +102,8 @@ class ChatRoomControllerTest extends ControllerTestSupport {
     @Test
     void 내채팅방목록조회_정상_요청시_200을_응답한다() throws Exception {
         // given
-        given(chatRoomService.getMyRooms(1L)).willReturn(ChatRoomListResponse.of(List.of()));
+        given(chatRoomService.getMyRooms(eq(1L), any(), any(), anyInt()))
+                .willReturn(ChatRoomListResponse.of(List.of(), false, null, null));
 
         // when & then
         mockMvc.perform(get("/api/v1/chat/rooms")

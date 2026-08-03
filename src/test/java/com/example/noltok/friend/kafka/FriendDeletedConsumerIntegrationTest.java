@@ -19,7 +19,7 @@ import static org.awaitility.Awaitility.await;
 
 // Kafka(발행→소비) + MySQL(이력 저장) 전체 파이프라인을 실제 인프라로 검증
 // — Friend는 Hard Delete라 이력이 안 남는 걸 friend.deleted 이벤트로 보완하는
-// 파이프라인 자체가 실제로 동작하는지가 검증 대상 (optimization-log.md [9])
+// 파이프라인 자체가 실제로 동작하는지가 검증 대상
 class FriendDeletedConsumerIntegrationTest extends AbstractIntegrationTest {
 
     @Autowired

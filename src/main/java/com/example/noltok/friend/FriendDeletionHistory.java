@@ -12,9 +12,9 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 
-// Friend는 Hard Delete라 삭제되면 이력이 안 남음(decision-log.md 2026-07-02) —
-// friend.deleted Kafka 이벤트를 소비해서 이 테이블에 스냅샷을 남긴다.
-// 어뷰징 탐지 등 실제 분석 로직은 이 프로젝트 범위 밖, 파이프라인 자체만 구축
+// Friend는 Hard Delete라 삭제되면 이력이 안 남아, friend.deleted Kafka
+// 이벤트를 소비해서 이 테이블에 스냅샷을 남긴다. 어뷰징 탐지 등 실제
+// 분석 로직은 이 프로젝트 범위 밖, 파이프라인 자체만 구축
 @Entity
 @Table(name = "friend_deletion_history")
 @Getter

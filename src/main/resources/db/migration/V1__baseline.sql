@@ -1,6 +1,6 @@
 -- 현재 실제 DB(ddl-auto=update로 쌓인 스키마)를 그대로 스냅샷.
--- refresh_tokens는 Phase 7(2026-07-09)에 Redis로 이전된 뒤 안 지워진
--- 유령 테이블이라 여기 포함하지 않고 V2에서 별도로 정리한다.
+-- refresh_tokens는 Redis로 이전된 뒤 안 지워진 유령 테이블이라 여기
+-- 포함하지 않고 V2에서 별도로 정리한다.
 
 CREATE TABLE `users` (
   `id` bigint NOT NULL AUTO_INCREMENT,

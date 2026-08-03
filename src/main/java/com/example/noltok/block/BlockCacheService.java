@@ -10,7 +10,7 @@ import java.util.Set;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 
-// 채팅 메시지 파이프라인 전용 차단 관계 캐시 (고빈도 조회라 캐싱 적용, docs/decision-log.md 참고)
+// 채팅 메시지 파이프라인 전용 차단 관계 캐시 (고빈도 조회라 캐싱 적용)
 @Component
 @RequiredArgsConstructor
 public class BlockCacheService {

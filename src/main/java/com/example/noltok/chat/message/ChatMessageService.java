@@ -116,7 +116,7 @@ public class ChatMessageService {
             throw new BusinessException(ErrorCode.NOT_MESSAGE_SENDER);
         }
 
-        // 4. Hard Delete (흔적을 남기지 않기로 결정, decision-log.md 참고)
+        // 4. Hard Delete (흔적을 남기지 않기로 결정)
         chatMessageRepository.delete(message);
 
         // 5. 방 활성 멤버 전원에게 실시간 삭제 이벤트 전파 + 안읽음 캐시 무효화

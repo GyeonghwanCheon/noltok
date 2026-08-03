@@ -233,7 +233,6 @@ public class FriendService {
         friendRepository.delete(friend);
 
         // 5. Hard Delete라 이력이 안 남는 걸 보완 — friend.deleted 이벤트 발행
-        //    (별도 이력 파이프라인에 저장됨, optimization-log.md [9] 참고)
         friendDeletedProducer.publish(friend, userId);
 
         return FriendDeleteResponse.of(friendId, friendUser.getNickname());

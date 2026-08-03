@@ -58,6 +58,20 @@ public class ChatMessageController {
         return ResponseEntity.ok(ApiResponse.ok(response));
     }
 
+    // 채팅 메시지 검색 API (방 안에서 키워드로 검색, FULLTEXT)
+    @GetMapping("/api/v1/chat/rooms/{roomId}/messages/search")
+    @ResponseBody
+    public ResponseEntity<ApiResponse<ChatMessageListResponse>> searchMessages(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable Long roomId,
+            @RequestParam String keyword,
+            @RequestParam(required = false) Long cursor,
+            @RequestParam(defaultValue = "20") int size) {
+        Long userId = Long.parseLong(userDetails.getUsername());
+        ChatMessageListResponse response = chatMessageService.searchMessages(userId, roomId, keyword, cursor, size);
+        return ResponseEntity.ok(ApiResponse.ok(response));
+    }
+
     // 채팅 메시지 삭제 API (본인 메시지만, Hard Delete)
     @DeleteMapping("/api/v1/chat/rooms/{roomId}/messages/{messageId}")
     public ResponseEntity<ApiResponse<ChatMessageDeleteResponse>> deleteMessage(

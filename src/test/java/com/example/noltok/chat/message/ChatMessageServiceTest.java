@@ -323,4 +323,105 @@ class ChatMessageServiceTest {
                 .isEqualTo(ErrorCode.NOT_MESSAGE_SENDER);
         verify(chatMessageRepository, never()).delete(any());
     }
+
+    // ── searchMessages() ──────────────────────────────────────
+
+    @Test
+    void searchMessages_정상_검색시_결과를_재정렬없이_최신순_그대로_반환한다() {
+        // given: DB는 최신순(id DESC)으로 반환 — getMessages()와 달리 뒤집지 않아야 함
+        User sender = testUser(userId, "발신자");
+        ChatMessage newest = testMessage(7L, userId, "안녕 검색어 포함");
+        ChatMessage oldest = testMessage(5L, userId, "검색어 포함 안녕");
+        given(chatRoomRepository.findById(roomId)).willReturn(Optional.of(activeRoom(roomId)));
+        given(chatRoomMemberRepository.findByChatRoomIdAndUserIdAndIsActiveTrue(roomId, userId))
+                .willReturn(Optional.of(ChatRoomMember.create(activeRoom(roomId), userId, ChatRoomRole.MEMBER)));
+        given(blockCacheService.getBlockedByMe(userId)).willReturn(List.of());
+        given(chatMessageRepository.searchByRoomIdAndKeyword(eq(roomId), eq(List.of(-1L)), eq("검색어"), any(Pageable.class)))
+                .willReturn(new SliceImpl<>(List.of(newest, oldest), PageRequest.of(0, 20), false));
+        given(userProfileCacheService.getProfiles(List.of(userId)))
+                .willReturn(Map.of(userId, UserProfileDto.from(sender)));
+
+        // when
+        ChatMessageListResponse response = chatMessageService.searchMessages(userId, roomId, "검색어", null, 20);
+
+        // then: DB가 반환한 순서(7, 5) 그대로 유지
+        assertThat(response.messages()).extracting("messageId").containsExactly(7L, 5L);
+        verify(chatMessageRepository, never()).searchByRoomIdAndKeywordAndIdLessThan(any(), any(), anyLong(), any(), any());
+    }
+
+    @Test
+    void searchMessages_커서가_있으면_그보다_이전_검색결과를_조회한다() {
+        // given
+        User sender = testUser(userId, "발신자");
+        ChatMessage message = testMessage(3L, userId, "검색어 포함");
+        given(chatRoomRepository.findById(roomId)).willReturn(Optional.of(activeRoom(roomId)));
+        given(chatRoomMemberRepository.findByChatRoomIdAndUserIdAndIsActiveTrue(roomId, userId))
+                .willReturn(Optional.of(ChatRoomMember.create(activeRoom(roomId), userId, ChatRoomRole.MEMBER)));
+        given(blockCacheService.getBlockedByMe(userId)).willReturn(List.of());
+        given(chatMessageRepository.searchByRoomIdAndKeywordAndIdLessThan(
+                eq(roomId), eq(List.of(-1L)), eq(5L), eq("검색어"), any(Pageable.class)))
+                .willReturn(new SliceImpl<>(List.of(message), PageRequest.of(0, 20), true));
+        given(userProfileCacheService.getProfiles(List.of(userId)))
+                .willReturn(Map.of(userId, UserProfileDto.from(sender)));
+
+        // when
+        ChatMessageListResponse response = chatMessageService.searchMessages(userId, roomId, "검색어", 5L, 20);
+
+        // then
+        assertThat(response.hasNext()).isTrue();
+        verify(chatMessageRepository, never()).searchByRoomIdAndKeyword(any(), any(), any(), any());
+    }
+
+    @Test
+    void searchMessages_키워드가_비어있으면_예외() {
+        // when & then
+        assertThatThrownBy(() -> chatMessageService.searchMessages(userId, roomId, " ", null, 20))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(ErrorCode.INVALID_INPUT);
+        verify(chatMessageRepository, never()).searchByRoomIdAndKeyword(any(), any(), any(), any());
+    }
+
+    @Test
+    void searchMessages_채팅방이_없으면_예외() {
+        // given
+        given(chatRoomRepository.findById(roomId)).willReturn(Optional.empty());
+
+        // when & then
+        assertThatThrownBy(() -> chatMessageService.searchMessages(userId, roomId, "검색어", null, 20))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(ErrorCode.CHATROOM_NOT_FOUND);
+    }
+
+    @Test
+    void searchMessages_활성_멤버가_아니면_예외() {
+        // given
+        given(chatRoomRepository.findById(roomId)).willReturn(Optional.of(activeRoom(roomId)));
+        given(chatRoomMemberRepository.findByChatRoomIdAndUserIdAndIsActiveTrue(roomId, userId))
+                .willReturn(Optional.empty());
+
+        // when & then
+        assertThatThrownBy(() -> chatMessageService.searchMessages(userId, roomId, "검색어", null, 20))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(ErrorCode.NOT_CHATROOM_MEMBER);
+    }
+
+    @Test
+    void searchMessages_차단한_사람의_메시지는_제외하고_검색한다() {
+        // given: 차단한 유저(99L)의 id를 NOT IN 조건으로 그대로 넘기는지 확인
+        given(chatRoomRepository.findById(roomId)).willReturn(Optional.of(activeRoom(roomId)));
+        given(chatRoomMemberRepository.findByChatRoomIdAndUserIdAndIsActiveTrue(roomId, userId))
+                .willReturn(Optional.of(ChatRoomMember.create(activeRoom(roomId), userId, ChatRoomRole.MEMBER)));
+        given(blockCacheService.getBlockedByMe(userId)).willReturn(List.of(99L));
+        given(chatMessageRepository.searchByRoomIdAndKeyword(eq(roomId), eq(List.of(99L)), eq("검색어"), any(Pageable.class)))
+                .willReturn(new SliceImpl<>(List.of(), PageRequest.of(0, 20), false));
+
+        // when
+        chatMessageService.searchMessages(userId, roomId, "검색어", null, 20);
+
+        // then
+        verify(chatMessageRepository).searchByRoomIdAndKeyword(eq(roomId), eq(List.of(99L)), eq("검색어"), any(Pageable.class));
+    }
 }

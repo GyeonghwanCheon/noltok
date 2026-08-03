@@ -33,4 +33,26 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> 
         )
     """)
     List<ChatMessage> findLastMessagesByRoomIds(@Param("roomIds") List<Long> roomIds);
+
+    // 메시지 검색 (최신 페이지) — MATCH AGAINST는 JPQL 미지원이라 네이티브 쿼리
+    @Query(value = """
+        SELECT * FROM chat_messages
+        WHERE room_id = :roomId AND sender_id NOT IN :excludedSenderIds
+        AND MATCH(content) AGAINST(:keyword IN NATURAL LANGUAGE MODE)
+        ORDER BY id DESC
+    """, nativeQuery = true)
+    Slice<ChatMessage> searchByRoomIdAndKeyword(
+            @Param("roomId") Long roomId, @Param("excludedSenderIds") List<Long> excludedSenderIds,
+            @Param("keyword") String keyword, Pageable pageable);
+
+    // cursor(마지막으로 받은 메시지 id)보다 오래된 검색 결과 조회
+    @Query(value = """
+        SELECT * FROM chat_messages
+        WHERE room_id = :roomId AND sender_id NOT IN :excludedSenderIds AND id < :cursor
+        AND MATCH(content) AGAINST(:keyword IN NATURAL LANGUAGE MODE)
+        ORDER BY id DESC
+    """, nativeQuery = true)
+    Slice<ChatMessage> searchByRoomIdAndKeywordAndIdLessThan(
+            @Param("roomId") Long roomId, @Param("excludedSenderIds") List<Long> excludedSenderIds,
+            @Param("cursor") Long cursor, @Param("keyword") String keyword, Pageable pageable);
 }

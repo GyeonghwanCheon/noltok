@@ -130,4 +130,44 @@ public class ChatMessageService {
 
         return response;
     }
+
+    @Transactional(readOnly = true)
+    public ChatMessageListResponse searchMessages(Long userId, Long roomId, String keyword, Long cursor, int size) {
+        // 1. 검색어 필수
+        if (keyword == null || keyword.isBlank()) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT);
+        }
+
+        // 2. 채팅방 존재 확인
+        chatRoomRepository.findById(roomId)
+                .filter(ChatRoom::isActive)
+                .orElseThrow(() -> new BusinessException(ErrorCode.CHATROOM_NOT_FOUND));
+
+        // 3. 요청자가 활성 멤버인지 확인
+        chatRoomMemberRepository.findByChatRoomIdAndUserIdAndIsActiveTrue(roomId, userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_CHATROOM_MEMBER));
+
+        // 4. 내가 차단한 사람의 메시지는 검색 결과에서도 제외
+        List<Long> excludedSenderIds = blockCacheService.getBlockedByMe(userId);
+        if (excludedSenderIds.isEmpty()) {
+            excludedSenderIds = NO_EXCLUSION;
+        }
+
+        // 5. FULLTEXT 검색 + 커서 기반 조회 (id DESC)
+        Pageable pageable = PageRequest.of(0, size);
+        Slice<ChatMessage> slice = cursor == null
+                ? chatMessageRepository.searchByRoomIdAndKeyword(roomId, excludedSenderIds, keyword, pageable)
+                : chatMessageRepository.searchByRoomIdAndKeywordAndIdLessThan(roomId, excludedSenderIds, cursor, keyword, pageable);
+
+        // 6. 발신자 프로필 캐시로 일괄 조회 (N+1 방지)
+        List<Long> senderIds = slice.getContent().stream().map(ChatMessage::getSenderId).distinct().toList();
+        Map<Long, UserProfileDto> profileMap = userProfileCacheService.getProfiles(senderIds);
+
+        // 7. 검색 결과는 재정렬 없이 최신순 그대로 반환 (getMessages()와 다르게 뒤집지 않음)
+        List<ChatMessageResponse> messages = slice.getContent().stream()
+                .map(m -> ChatMessageResponse.of(m, profileMap.get(m.getSenderId()).nickname()))
+                .toList();
+
+        return ChatMessageListResponse.of(messages, slice.hasNext());
+    }
 }
